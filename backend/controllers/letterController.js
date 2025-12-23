@@ -1,4 +1,6 @@
 import LetterState from "../models/LetterState.js";
+import axios from "axios";
+import FormData from "form-data";
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 const EPSILON = 0.3;
@@ -46,23 +48,45 @@ export const getNextLetter = async (req, res) => {
 /* =====================
    LOG ATTEMPT & UPDATE BANDIT
 ===================== */
+// export const logLetterAttempt = async (req, res) => {
+//   const studentId = req.user._id;
+//   const { letter, correct, responseTimeMs } = req.body;
+
+//   const reward = computeReward({ correct, responseTimeMs });
+
+//   const state = await LetterState.findOne({ studentId, letter });
+
+//   const pulls = state.pulls + 1;
+//   const totalReward = state.totalReward + reward;
+//   const avgReward = totalReward / pulls;
+
+//   state.pulls = pulls;
+//   state.totalReward = totalReward;
+//   state.avgReward = avgReward;
+
+//   await state.save();
+
+//   res.json({ success: true, reward, avgReward });
+// };
 export const logLetterAttempt = async (req, res) => {
   const studentId = req.user._id;
-  const { letter, correct, responseTimeMs } = req.body;
+  const { letter, responseTimeMs } = req.body;
 
+  const audioFile = req.file;
+
+  const form = new FormData();
+  form.append("audio", audioFile.buffer, "audio.wav");
+  form.append("letter", letter);
+
+  const mlRes = await axios.post("http://localhost:6000/analyze", form, {
+    headers: form.getHeaders(),
+  });
+
+  const { correct } = mlRes.data;
+
+  // ⬇️ EXISTING BANDIT UPDATE LOGIC
   const reward = computeReward({ correct, responseTimeMs });
+  // update LetterState same as before
 
-  const state = await LetterState.findOne({ studentId, letter });
-
-  const pulls = state.pulls + 1;
-  const totalReward = state.totalReward + reward;
-  const avgReward = totalReward / pulls;
-
-  state.pulls = pulls;
-  state.totalReward = totalReward;
-  state.avgReward = avgReward;
-
-  await state.save();
-
-  res.json({ success: true, reward, avgReward });
+  res.json({ success: true, ...mlRes.data });
 };
