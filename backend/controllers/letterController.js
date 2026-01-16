@@ -1,6 +1,8 @@
 import LetterState from "../models/LetterState.js";
 import axios from "axios";
 import FormData from "form-data";
+import { selectNextState } from "../src/bandit/selectNext.js";
+import { updateBanditState } from "../src/bandit/updateState.js";
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 const EPSILON = 0.3; //30% exploration, 70% exploitation
@@ -37,16 +39,7 @@ export const getNextLetter = async (req, res) => {
 
   const states = await LetterState.find({ studentId });
 
-  let chosen;
-
-  // Exploration
-  if (Math.random() < EPSILON) {
-    chosen = states[Math.floor(Math.random() * states.length)];
-  }
-  // Exploitation (pick lowest avgReward = hardest)
-  else {
-    chosen = states.reduce((a, b) => (a.avgReward < b.avgReward ? a : b));
-  }
+  const chosen = selectNextState(states, EPSILON);
 
   chosen.isActive = true;
   await chosen.save();
@@ -129,9 +122,7 @@ export const logLetterAttempt = async (req, res) => {
       });
     }
 
-    state.pulls += 1; //number of attempts on a given letter
-    state.totalReward += reward;
-    state.avgReward = state.totalReward / state.pulls;
+    updateBanditState(state, reward);
 
     state.isActive = false;
     await state.save();
