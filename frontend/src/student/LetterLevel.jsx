@@ -94,35 +94,3 @@ export default function LetterLevel() {
     </div>
   );
 }
-const startRecording = async () => {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const recorder = new MediaRecorder(stream);
-  const chunks = [];
-
-  recorder.ondataavailable = (e) => chunks.push(e.data);
-  recorder.start();
-
-  const startTime = Date.now();
-
-  setTimeout(() => {
-    recorder.stop();
-
-    recorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: "audio/wav" });
-      const responseTimeMs = Date.now() - startTime;
-
-      const formData = new FormData();
-      formData.append("audio", blob);
-      formData.append("letter", letter);
-      formData.append("responseTimeMs", responseTimeMs);
-
-      await fetch("http://localhost:5001/api/letters/attempt", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      loadLetter();
-    };
-  }, 3000);
-};

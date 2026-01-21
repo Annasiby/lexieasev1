@@ -15,8 +15,6 @@ router.get(
   getNextLetter
 );
 
-//router.post("/attempt", protect, authorizeRoles("student"), logLetterAttempt);
-//Both post reqs with same path - Express DOES NOT allow that
 router.post(
   "/attempt", //evaluates performance, updates student model, adapts future content
   protect,

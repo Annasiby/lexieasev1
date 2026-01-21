@@ -6,6 +6,7 @@ import authRoutes from "./routes/authRoutes.js";
 import testRoutes from "./routes/testRoutes.js";
 import relationshipRoutes from "./routes/relationshipRoutes.js";
 import letterRoutes from "./routes/letterRoutes.js";
+import sentenceRoutes from "./routes/sentenceRoutes.js";
 
 const app = express();
 
@@ -28,5 +29,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/relationships", relationshipRoutes);
 app.use("/api/letters", letterRoutes);
+app.use("/api/sentences", sentenceRoutes);
 
 export default app;
