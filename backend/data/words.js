@@ -1,11 +1,11 @@
 export const WORDS = [
   {
     id: "w1",
-    text: "apple",
+    text: "cat",
   },
   {
     id: "w2",
-    text: "school",
+    text: "pan",
   },
   {
     id: "w3",
@@ -17,10 +17,10 @@ export const WORDS = [
   },
   {
     id: "w5",
-    text: "elephant",
+    text: "apple",
   },
   {
     id: "w6",
-    text: "beautiful",
+    text: "school",
   },
 ];
