@@ -56,7 +56,7 @@ function App() {
 
         {/* learning levels (same logic as upstream, just routed) */}
         <Route path="letter-level" element={<LetterLevel />} />
-        <Route path="word-level" element={<WordLevel />} />
+        <Route path="word-level" element={<TwoLetterLevel />} />
         <Route path="sentence-level" element={<SentenceLevel />} />
       </Route>
 

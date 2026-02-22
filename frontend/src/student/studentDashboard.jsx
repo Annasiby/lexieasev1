@@ -1,3 +1,5 @@
+
+
 // import { useEffect, useState } from "react";
 // import { useNavigate } from "react-router-dom";
 // import { apiFetch } from "../api/api";
@@ -11,7 +13,7 @@
 //   const [loading, setLoading] = useState(true);
 //   const [timeframe, setTimeframe] = useState(7);
 //   const [userInfo, setUserInfo] = useState(null);
-//   const [downloading, setDownloading] = useState(false); // ADD THIS
+//   const [downloading, setDownloading] = useState(false);
 
 //   useEffect(() => {
 //     const fetchUserInfo = async () => {
@@ -41,254 +43,302 @@
 //   };
 
 //   const downloadPDFReport = () => {
-//   if (!report?.metrics) return;
+//     if (!report?.metrics) return;
 
-//   setDownloading(true);
+//     setDownloading(true);
 
-//   try {
-//     const doc = new jsPDF({ unit: "mm", format: "a4" });
-//     const { metrics } = report;
+//     try {
+//       const doc = new jsPDF({ unit: "mm", format: "a4" });
+//       const { metrics } = report;
 
-//     const studentName =
-//       userInfo?.name ||
-//       userInfo?.fullName ||
-//       userInfo?.username ||
-//       "Student";
+//       // FIX: Use userInfo.name directly (from User model's name field)
+//       const studentName = userInfo?.name || "Student";
 
-//     /* ================= HEADER ================= */
+//       /* ================= HEADER ================= */
 
-//     doc.setFillColor(59, 130, 246);
-//     doc.rect(0, 0, 210, 30, "F");
+//       doc.setFillColor(59, 130, 246);
+//       doc.rect(0, 0, 210, 30, "F");
 
-//     doc.setTextColor(255, 255, 255);
-//     doc.setFont("helvetica", "bold");
-//     doc.setFontSize(20);
-//     doc.text("LexCura Speech Therapy", 105, 14, { align: "center" });
-
-//     doc.setFontSize(12);
-//     doc.setFont("helvetica", "normal");
-//     doc.text("Student Progress Report", 105, 22, { align: "center" });
-
-//     /* ================= REPORT INFO BOX ================= */
-
-//     doc.setTextColor(0, 0, 0);
-//     let yPos = 40;
-
-//     doc.setDrawColor(59, 130, 246);
-//     doc.rect(15, yPos, 180, 22);
-
-//     doc.setFont("helvetica", "bold");
-//     doc.setFontSize(11);
-//     doc.text("Report Information", 20, yPos + 7);
-
-//     doc.setFont("helvetica", "normal");
-//     doc.setFontSize(10);
-//     doc.text(`Student Name: ${studentName}`, 20, yPos + 14);
-//     doc.text(`Report Period: Last ${timeframe} Days`, 20, yPos + 19);
-
-//     doc.text(
-//       `Generated: ${new Date().toLocaleDateString()}`,
-//       120,
-//       yPos + 14
-//     );
-//     doc.text(
-//       `Total Sessions: ${metrics.overview?.totalAttempts || 0}`,
-//       120,
-//       yPos + 19
-//     );
-
-//     yPos += 35;
-
-//     /* ================= EXECUTIVE SUMMARY ================= */
-
-//     doc.setFont("helvetica", "bold");
-//     doc.setFontSize(14);
-//     doc.setTextColor(59, 130, 246);
-//     doc.text("Executive Summary", 20, yPos);
-//     yPos += 8;
-
-//     doc.setFont("helvetica", "normal");
-//     doc.setFontSize(10);
-//     doc.setTextColor(0, 0, 0);
-
-//     const summaryText = `
-// This report covers ${metrics.overview?.totalAttempts || 0} sessions over the last ${timeframe} days.
-// The student achieved a ${metrics.overview?.successRate || 0}% success rate
-// with ${metrics.overview?.accuracyPercentage || 0}% pronunciation accuracy.
-// Trend status: ${metrics.trend?.direction || "Stable"}.
-//     `;
-
-//     const summaryLines = doc.splitTextToSize(summaryText, 170);
-//     summaryLines.forEach(line => {
-//       doc.text(line, 20, yPos);
-//       yPos += 5;
-//     });
-
-//     yPos += 10;
-
-//     /* ================= KPI TABLE ================= */
-
-//     doc.setFont("helvetica", "bold");
-//     doc.setFontSize(14);
-//     doc.setTextColor(59, 130, 246);
-//     doc.text("Key Performance Indicators", 20, yPos);
-//     yPos += 8;
-
-//     doc.autoTable({
-//       startY: yPos,
-//       head: [["Metric", "Value", "Status"]],
-//       body: [
-//         [
-//           "Success Rate",
-//           `${metrics.overview?.successRate || 0}%`,
-//           parseFloat(metrics.overview?.successRate || 0) >= 70
-//             ? "Good"
-//             : "Needs Improvement",
-//         ],
-//         [
-//           "Accuracy",
-//           `${metrics.overview?.accuracyPercentage || 0}%`,
-//           parseFloat(metrics.overview?.accuracyPercentage || 0) >= 80
-//             ? "Excellent"
-//             : "Developing",
-//         ],
-//         [
-//           "Avg Response Time",
-//           `${((metrics.overview?.avgResponseTime || 0) / 1000).toFixed(1)}s`,
-//           metrics.overview?.avgResponseTime < 3000
-//             ? "Fast"
-//             : "Moderate",
-//         ],
-//         [
-//           "Trend",
-//           metrics.trend?.direction?.toUpperCase() || "STABLE",
-//           metrics.trend?.direction === "improving"
-//             ? "Positive"
-//             : metrics.trend?.direction === "declining"
-//             ? "Needs Attention"
-//             : "Stable",
-//         ],
-//       ],
-//       theme: "striped",
-//       tableWidth: "auto",
-//       styles: {
-//         font: "helvetica",
-//         fontSize: 10,
-//         overflow: "linebreak",
-//         cellPadding: 4,
-//       },
-//       headStyles: {
-//         fillColor: [59, 130, 246],
-//       },
-//     });
-
-//     yPos = doc.lastAutoTable.finalY + 15;
-
-//     /* ================= PROBLEM LETTERS ================= */
-
-//     if (metrics.problemAreas?.letters?.length > 0) {
+//       doc.setTextColor(255, 255, 255);
 //       doc.setFont("helvetica", "bold");
-//       doc.setFontSize(14);
-//       doc.setTextColor(239, 68, 68);
-//       doc.text("Phonemes Requiring Attention", 20, yPos);
-//       yPos += 8;
+//       doc.setFontSize(20);
+//       doc.text("LexCura Speech Therapy", 105, 14, { align: "center" });
 
-//       doc.autoTable({
-//         startY: yPos,
-//         head: [["Letter", "Errors", "Error Rate"]],
-//         body: metrics.problemAreas.letters.map(item => [
-//           item.letter.toUpperCase(),
-//           item.errorCount,
-//           `${item.errorRate}%`,
-//         ]),
-//         theme: "striped",
-//         tableWidth: "auto",
-//         styles: {
-//           font: "helvetica",
-//           fontSize: 9,
-//           overflow: "linebreak",
-//         },
-//         headStyles: {
-//           fillColor: [239, 68, 68],
-//         },
-//       });
+//       doc.setFontSize(12);
+//       doc.setFont("helvetica", "normal");
+//       doc.text("Student Progress Report", 105, 22, { align: "center" });
 
-//       yPos = doc.lastAutoTable.finalY + 15;
-//     }
+//       /* ================= REPORT INFO BOX ================= */
 
-//     /* ================= DAILY PROGRESS ================= */
+//       doc.setTextColor(0, 0, 0);
+//       let yPos = 40;
 
-//     if (metrics.progress?.daily?.length > 0) {
-//       doc.addPage();
-//       yPos = 20;
+//       doc.setDrawColor(59, 130, 246);
+//       doc.rect(15, yPos, 180, 22);
+
+//       doc.setFont("helvetica", "bold");
+//       doc.setFontSize(11);
+//       doc.text("Report Information", 20, yPos + 7);
+
+//       doc.setFont("helvetica", "normal");
+//       doc.setFontSize(10);
+//       doc.text(`Student Name: ${studentName}`, 20, yPos + 14);
+//       doc.text(`Report Period: Last ${timeframe} Days`, 20, yPos + 19);
+
+//       doc.text(
+//         `Generated: ${new Date().toLocaleDateString()}`,
+//         120,
+//         yPos + 14
+//       );
+//       doc.text(
+//         `Total Sessions: ${metrics.overview?.totalAttempts || 0}`,
+//         120,
+//         yPos + 19
+//       );
+
+//       yPos += 35;
+
+//       /* ================= EXECUTIVE SUMMARY ================= */
 
 //       doc.setFont("helvetica", "bold");
 //       doc.setFontSize(14);
 //       doc.setTextColor(59, 130, 246);
-//       doc.text("Session Progress Overview", 20, yPos);
+//       doc.text("Executive Summary", 20, yPos);
+//       yPos += 8;
+
+//       doc.setFont("helvetica", "normal");
+//       doc.setFontSize(10);
+//       doc.setTextColor(0, 0, 0);
+
+//       const summaryText = `
+// This report covers ${metrics.overview?.totalAttempts || 0} sessions over the last ${timeframe} days.
+// The student achieved a ${metrics.overview?.successRate || 0}% success rate
+// with ${metrics.overview?.accuracyPercentage || 0}% pronunciation accuracy.
+// Trend status: ${metrics.trend?.direction || "Stable"}.
+//       `;
+
+//       const summaryLines = doc.splitTextToSize(summaryText, 170);
+//       summaryLines.forEach(line => {
+//         doc.text(line, 20, yPos);
+//         yPos += 5;
+//       });
+
+//       yPos += 10;
+
+//       /* ================= KPI TABLE ================= */
+
+//       doc.setFont("helvetica", "bold");
+//       doc.setFontSize(14);
+//       doc.setTextColor(59, 130, 246);
+//       doc.text("Key Performance Indicators", 20, yPos);
 //       yPos += 8;
 
 //       doc.autoTable({
 //         startY: yPos,
-//         head: [["Date", "Sessions", "Accuracy", "Success Rate"]],
-//         body: metrics.progress.daily.map(day => [
-//           new Date(day.date).toLocaleDateString(),
-//           day.attempts,
-//           `${day.accuracy}%`,
-//           `${day.successRate}%`,
-//         ]),
+//         head: [["Metric", "Value", "Status"]],
+//         body: [
+//           [
+//             "Success Rate",
+//             `${metrics.overview?.successRate || 0}%`,
+//             parseFloat(metrics.overview?.successRate || 0) >= 70
+//               ? "Good"
+//               : "Needs Improvement",
+//           ],
+//           [
+//             "Accuracy",
+//             `${metrics.overview?.accuracyPercentage || 0}%`,
+//             parseFloat(metrics.overview?.accuracyPercentage || 0) >= 80
+//               ? "Excellent"
+//               : "Developing",
+//           ],
+//           [
+//             "Avg Response Time",
+//             `${((metrics.overview?.avgResponseTime || 0) / 1000).toFixed(1)}s`,
+//             metrics.overview?.avgResponseTime < 3000
+//               ? "Fast"
+//               : "Moderate",
+//           ],
+//           [
+//             "Trend",
+//             metrics.trend?.direction?.toUpperCase() || "STABLE",
+//             metrics.trend?.direction === "improving"
+//               ? "Positive"
+//               : metrics.trend?.direction === "declining"
+//               ? "Needs Attention"
+//               : "Stable",
+//           ],
+//         ],
 //         theme: "striped",
 //         tableWidth: "auto",
 //         styles: {
 //           font: "helvetica",
-//           fontSize: 9,
+//           fontSize: 10,
 //           overflow: "linebreak",
+//           cellPadding: 4,
 //         },
 //         headStyles: {
 //           fillColor: [59, 130, 246],
 //         },
 //       });
+
+//       yPos = doc.lastAutoTable.finalY + 15;
+
+//       /* ================= PROBLEM LETTERS ================= */
+
+//       if (metrics.problemAreas?.letters?.length > 0) {
+//         doc.setFont("helvetica", "bold");
+//         doc.setFontSize(14);
+//         doc.setTextColor(239, 68, 68);
+//         doc.text("Phonemes Requiring Attention", 20, yPos);
+//         yPos += 8;
+
+//         doc.autoTable({
+//           startY: yPos,
+//           head: [["Letter", "Errors", "Error Rate"]],
+//           body: metrics.problemAreas.letters.map(item => [
+//             item.letter.toUpperCase(),
+//             item.errorCount,
+//             `${item.errorRate}%`,
+//           ]),
+//           theme: "striped",
+//           tableWidth: "auto",
+//           styles: {
+//             font: "helvetica",
+//             fontSize: 9,
+//             overflow: "linebreak",
+//           },
+//           headStyles: {
+//             fillColor: [239, 68, 68],
+//           },
+//         });
+
+//         yPos = doc.lastAutoTable.finalY + 15;
+//       }
+
+//       /* ================= DAILY PROGRESS ================= */
+
+//       if (metrics.progress?.daily?.length > 0) {
+//         doc.addPage();
+//         yPos = 20;
+
+//         doc.setFont("helvetica", "bold");
+//         doc.setFontSize(14);
+//         doc.setTextColor(59, 130, 246);
+//         doc.text("Session Progress Overview", 20, yPos);
+//         yPos += 8;
+
+//         doc.autoTable({
+//           startY: yPos,
+//           head: [["Date", "Sessions", "Accuracy", "Success Rate"]],
+//           body: metrics.progress.daily.map(day => [
+//             new Date(day.date).toLocaleDateString(),
+//             day.attempts,
+//             `${day.accuracy}%`,
+//             `${day.successRate}%`,
+//           ]),
+//           theme: "striped",
+//           tableWidth: "auto",
+//           styles: {
+//             font: "helvetica",
+//             fontSize: 9,
+//             overflow: "linebreak",
+//           },
+//           headStyles: {
+//             fillColor: [59, 130, 246],
+//           },
+//         });
+
+//         yPos = doc.lastAutoTable.finalY + 15;
+//       }
+
+//       /* ================= THERAPIST REMARKS SECTION ================= */
+
+//       // Add new page for therapist remarks if needed
+//       if (yPos > 220) {
+//         doc.addPage();
+//         yPos = 20;
+//       }
+
+//       doc.setFont("helvetica", "bold");
+//       doc.setFontSize(14);
+//       doc.setTextColor(139, 92, 246); // Purple color
+//       doc.text("Therapist Remarks", 20, yPos);
+//       yPos += 10;
+
+//       // Draw remarks box
+//       doc.setDrawColor(139, 92, 246);
+//       doc.setLineWidth(0.5);
+//       doc.rect(15, yPos, 180, 60);
+
+//       // Add lines for writing
+//       doc.setDrawColor(200, 200, 200);
+//       doc.setLineWidth(0.2);
+//       for (let i = 0; i < 10; i++) {
+//         const lineY = yPos + 6 + (i * 5.5);
+//         if (lineY < yPos + 58) { // Stay within box
+//           doc.line(20, lineY, 190, lineY);
+//         }
+//       }
+
+//       // Add label
+//       doc.setFont("helvetica", "italic");
+//       doc.setFontSize(9);
+//       doc.setTextColor(120, 120, 120);
+//       doc.text("Therapist notes and recommendations:", 20, yPos + 3);
+
+//       yPos += 70;
+
+//       // Add signature line
+//       doc.setDrawColor(100, 100, 100);
+//       doc.setLineWidth(0.3);
+//       doc.line(20, yPos, 100, yPos);
+      
+//       doc.setFont("helvetica", "normal");
+//       doc.setFontSize(9);
+//       doc.setTextColor(80, 80, 80);
+//       doc.text("Therapist Signature", 20, yPos + 5);
+      
+//       doc.line(120, yPos, 190, yPos);
+//       doc.text("Date", 120, yPos + 5);
+
+//       /* ================= FOOTER ================= */
+
+//       const pageCount = doc.internal.getNumberOfPages();
+
+//       for (let i = 1; i <= pageCount; i++) {
+//         doc.setPage(i);
+//         doc.setDrawColor(200);
+//         doc.line(20, 285, 190, 285);
+
+//         doc.setFontSize(8);
+//         doc.setTextColor(120);
+//         doc.text(
+//           "LexCura Speech Therapy - Confidential Clinical Report",
+//           20,
+//           290
+//         );
+
+//         doc.text(`Page ${i} of ${pageCount}`, 190, 290, {
+//           align: "right",
+//         });
+//       }
+
+//       /* ================= SAVE ================= */
+
+//       const fileName = `LexCura_Report_${studentName.replace(
+//         /\s+/g,
+//         "_"
+//       )}_${new Date().toISOString().split("T")[0]}.pdf`;
+
+//       doc.save(fileName);
+
+//     } catch (error) {
+//       console.error("PDF error:", error);
+//       alert("Failed to generate report.");
+//     } finally {
+//       setDownloading(false);
 //     }
-
-//     /* ================= FOOTER ================= */
-
-//     const pageCount = doc.internal.getNumberOfPages();
-
-//     for (let i = 1; i <= pageCount; i++) {
-//       doc.setPage(i);
-//       doc.setDrawColor(200);
-//       doc.line(20, 285, 190, 285);
-
-//       doc.setFontSize(8);
-//       doc.setTextColor(120);
-//       doc.text(
-//         "LexCura Speech Therapy - Confidential Clinical Report",
-//         20,
-//         290
-//       );
-
-//       doc.text(`Page ${i} of ${pageCount}`, 190, 290, {
-//         align: "right",
-//       });
-//     }
-
-//     /* ================= SAVE ================= */
-
-//     const fileName = `LexCura_Report_${studentName.replace(
-//       /\s+/g,
-//       "_"
-//     )}_${new Date().toISOString().split("T")[0]}.pdf`;
-
-//     doc.save(fileName);
-
-//   } catch (error) {
-//     console.error("PDF error:", error);
-//     alert("Failed to generate report.");
-//   } finally {
-//     setDownloading(false);
-//   }
-// };
-
+//   };
 
 //   if (loading) {
 //     return (
@@ -324,12 +374,11 @@
 //       {/* Header */}
 //       <div style={styles.header}>
 //         <div>
-//           <h1 style={styles.title}>Welcome back! 👋</h1>
+//           <h1 style={styles.title}>Welcome back, {userInfo?.name || 'Student'}! 👋</h1>
 //           <p style={styles.subtitle}>Here's how you're progressing</p>
 //         </div>
         
 //         <div style={styles.headerActions}>
-//           {/* ✅ DOWNLOAD BUTTON - THIS WAS MISSING */}
 //           <button
 //             style={downloading ? styles.downloadButtonDisabled : styles.downloadButton}
 //             onClick={downloadPDFReport}
@@ -338,7 +387,6 @@
 //             {downloading ? '⏳ Generating PDF...' : '📥 Download Report'}
 //           </button>
           
-//           {/* Timeframe Filter */}
 //           <div style={styles.filterContainer}>
 //             <button
 //               style={timeframe === 7 ? styles.filterBtnActive : styles.filterBtn}
@@ -362,7 +410,7 @@
 //         </div>
 //       </div>
 
-//       {/* Rest of your dashboard content... */}
+//       {/* Rest of dashboard content */}
 //       <div style={styles.statsGrid}>
 //         <StatCard
 //           icon="🎯"
@@ -506,8 +554,7 @@
 //   );
 // }
 
-// // ... (all your component functions remain the same)
-
+// // Component functions
 // function StatCard({ icon, label, value, subValue, trend, color }) {
 //   return (
 //     <div style={styles.statCard}>
@@ -673,15 +720,9 @@
 //   return '#ef4444';
 // }
 
-// /* =========================
-//    Styles
-// ========================== */
+// /* ========================= Styles ========================== */
 
 // const styles = {
-//   // ... (keep all your existing styles)
-  
-//   // ADD THESE NEW STYLES FOR HEADER ACTIONS AND DOWNLOAD BUTTON:
-  
 //   headerActions: {
 //     display: 'flex',
 //     gap: '12px',
@@ -716,7 +757,6 @@
 //     opacity: 0.7
 //   },
   
-//   // ... (rest of your existing styles)
 //   page: {
 //     padding: '32px',
 //     maxWidth: '1400px',
@@ -1281,8 +1321,6 @@
 // `;
 // document.head.appendChild(styleSheet);
 
-
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/api";
@@ -1334,10 +1372,7 @@ export default function StudentDashboard() {
       const doc = new jsPDF({ unit: "mm", format: "a4" });
       const { metrics } = report;
 
-      // FIX: Use userInfo.name directly (from User model's name field)
       const studentName = userInfo?.name || "Student";
-
-      /* ================= HEADER ================= */
 
       doc.setFillColor(59, 130, 246);
       doc.rect(0, 0, 210, 30, "F");
@@ -1350,8 +1385,6 @@ export default function StudentDashboard() {
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
       doc.text("Student Progress Report", 105, 22, { align: "center" });
-
-      /* ================= REPORT INFO BOX ================= */
 
       doc.setTextColor(0, 0, 0);
       let yPos = 40;
@@ -1381,8 +1414,6 @@ export default function StudentDashboard() {
 
       yPos += 35;
 
-      /* ================= EXECUTIVE SUMMARY ================= */
-
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(59, 130, 246);
@@ -1407,8 +1438,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
       });
 
       yPos += 10;
-
-      /* ================= KPI TABLE ================= */
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
@@ -1466,8 +1495,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
 
       yPos = doc.lastAutoTable.finalY + 15;
 
-      /* ================= PROBLEM LETTERS ================= */
-
       if (metrics.problemAreas?.letters?.length > 0) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
@@ -1497,8 +1524,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
 
         yPos = doc.lastAutoTable.finalY + 15;
       }
-
-      /* ================= DAILY PROGRESS ================= */
 
       if (metrics.progress?.daily?.length > 0) {
         doc.addPage();
@@ -1534,9 +1559,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
         yPos = doc.lastAutoTable.finalY + 15;
       }
 
-      /* ================= THERAPIST REMARKS SECTION ================= */
-
-      // Add new page for therapist remarks if needed
       if (yPos > 220) {
         doc.addPage();
         yPos = 20;
@@ -1544,26 +1566,23 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
-      doc.setTextColor(139, 92, 246); // Purple color
+      doc.setTextColor(139, 92, 246);
       doc.text("Therapist Remarks", 20, yPos);
       yPos += 10;
 
-      // Draw remarks box
       doc.setDrawColor(139, 92, 246);
       doc.setLineWidth(0.5);
       doc.rect(15, yPos, 180, 60);
 
-      // Add lines for writing
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.2);
       for (let i = 0; i < 10; i++) {
         const lineY = yPos + 6 + (i * 5.5);
-        if (lineY < yPos + 58) { // Stay within box
+        if (lineY < yPos + 58) {
           doc.line(20, lineY, 190, lineY);
         }
       }
 
-      // Add label
       doc.setFont("helvetica", "italic");
       doc.setFontSize(9);
       doc.setTextColor(120, 120, 120);
@@ -1571,7 +1590,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
 
       yPos += 70;
 
-      // Add signature line
       doc.setDrawColor(100, 100, 100);
       doc.setLineWidth(0.3);
       doc.line(20, yPos, 100, yPos);
@@ -1583,8 +1601,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
       
       doc.line(120, yPos, 190, yPos);
       doc.text("Date", 120, yPos + 5);
-
-      /* ================= FOOTER ================= */
 
       const pageCount = doc.internal.getNumberOfPages();
 
@@ -1605,8 +1621,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
           align: "right",
         });
       }
-
-      /* ================= SAVE ================= */
 
       const fileName = `LexCura_Report_${studentName.replace(
         /\s+/g,
@@ -1693,7 +1707,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
         </div>
       </div>
 
-      {/* Rest of dashboard content */}
       <div style={styles.statsGrid}>
         <StatCard
           icon="🎯"
@@ -1789,38 +1802,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
         </div>
       )}
 
-      {metrics.progress.letterStrength.length > 0 && (
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>💪 Letter Mastery</h3>
-          <div style={styles.letterStrengthGrid}>
-            {metrics.progress.letterStrength.map((item, idx) => (
-              <div key={idx} style={styles.letterStrengthItem}>
-                <div style={styles.letterStrengthHeader}>
-                  <span style={styles.letterStrengthLetter}>
-                    {item.letter.toUpperCase()}
-                  </span>
-                  <span style={styles.letterStrengthValue}>
-                    {item.strength}%
-                  </span>
-                </div>
-                <div style={styles.progressBarBg}>
-                  <div
-                    style={{
-                      ...styles.progressBarFill,
-                      width: `${item.strength}%`,
-                      background: getStrengthColor(parseFloat(item.strength))
-                    }}
-                  />
-                </div>
-                <span style={styles.letterStrengthAttempts}>
-                  {item.attempts} attempts
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div style={styles.ctaCard}>
         <div>
           <h3 style={styles.ctaTitle}>Ready to improve? 🚀</h3>
@@ -1837,7 +1818,6 @@ Trend status: ${metrics.trend?.direction || "Stable"}.
   );
 }
 
-// Component functions
 function StatCard({ icon, label, value, subValue, trend, color }) {
   return (
     <div style={styles.statCard}>
@@ -1967,6 +1947,9 @@ function DailyProgressChart({ data }) {
           const height = (parseFloat(day.accuracy) / maxAccuracy) * 100;
           return (
             <div key={idx} style={styles.chartBarWrapper}>
+              <div style={styles.chartBarAccuracy}>
+                {day.accuracy}%
+              </div>
               <div
                 style={{
                   ...styles.chartBar,
@@ -1979,9 +1962,7 @@ function DailyProgressChart({ data }) {
                       : '#ef4444'
                 }}
                 title={`${day.accuracy}% accuracy`}
-              >
-                <span style={styles.chartBarLabel}>{day.accuracy}%</span>
-              </div>
+              />
               <span style={styles.chartDate}>
                 {new Date(day.date).toLocaleDateString('en-US', {
                   month: 'short',
@@ -2002,8 +1983,6 @@ function getStrengthColor(strength) {
   if (strength >= 40) return '#f59e0b';
   return '#ef4444';
 }
-
-/* ========================= Styles ========================== */
 
 const styles = {
   headerActions: {
@@ -2466,15 +2445,18 @@ const styles = {
     lineHeight: 1.6
   },
   
+  // Compact chart
   chartContainer: {
-    padding: '20px 0'
+    padding: '8px 0 0',
   },
   
   chartBars: {
     display: 'flex',
     alignItems: 'flex-end',
-    gap: '12px',
-    height: '200px'
+    gap: '8px',
+    height: '110px',       // was 200px — now compact
+    paddingBottom: '28px', // room for date labels
+    position: 'relative',
   },
   
   chartBarWrapper: {
@@ -2482,71 +2464,34 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '8px',
-    height: '100%'
+    justifyContent: 'flex-end',
+    gap: '4px',
+    height: '100%',
+    position: 'relative',
+  },
+
+  chartBarAccuracy: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: '2px',
   },
   
   chartBar: {
     width: '100%',
-    borderRadius: '8px 8px 0 0',
-    minHeight: '20px',
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    paddingTop: '8px',
+    borderRadius: '5px 5px 0 0',
+    minHeight: '8px',
     transition: 'height 0.3s ease',
-    position: 'relative'
-  },
-  
-  chartBarLabel: {
-    fontSize: '11px',
-    fontWeight: '700',
-    color: 'white'
   },
   
   chartDate: {
-    fontSize: '11px',
-    color: '#64748b',
+    position: 'absolute',
+    bottom: 0,
+    fontSize: '10px',
+    color: '#94a3b8',
     fontWeight: '500',
-    textAlign: 'center'
-  },
-  
-  letterStrengthGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-    gap: '16px'
-  },
-  
-  letterStrengthItem: {
-    padding: '16px',
-    background: '#f8fafc',
-    borderRadius: '12px'
-  },
-  
-  letterStrengthHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '8px'
-  },
-  
-  letterStrengthLetter: {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: '#0f172a'
-  },
-  
-  letterStrengthValue: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: '#3b82f6'
-  },
-  
-  letterStrengthAttempts: {
-    fontSize: '12px',
-    color: '#64748b',
-    display: 'block',
-    marginTop: '8px'
+    textAlign: 'center',
+    whiteSpace: 'nowrap',
   },
   
   ctaCard: {
