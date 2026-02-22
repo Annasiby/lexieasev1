@@ -24,7 +24,7 @@ export default function StudentLayout() {
        <div style={styles.left}>
   <div
     style={styles.logo}
-    onClick={() => navigate("/student/dashboard")}
+    onClick={() => navigate("/")}
   >
     LexCura
   </div>

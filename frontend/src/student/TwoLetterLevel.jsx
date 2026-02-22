@@ -181,7 +181,7 @@ export default function TwoLetterLevel() {
   const [ripple, setRipple] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-
+  const recordingStartRef = useRef(null);
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -242,6 +242,7 @@ export default function TwoLetterLevel() {
       };
 
       mediaRecorderRef.current.start();
+      recordingStartRef.current = Date.now();
       setIsRecording(true);
 
       setTimeout(() => {
@@ -267,11 +268,13 @@ export default function TwoLetterLevel() {
 
   const submitAudio = async (audioBlob) => {
     try {
+      const responseTimeMs = recordingStartRef.current ? Date.now() - recordingStartRef.current : 0;
       setStatus("⏳ Processing...");
       const formData = new FormData();
       formData.append("audio", audioBlob, "recording.webm");
       formData.append("twoLetterWordId", twoLetterWordId);
       formData.append("expected", word);
+      formData.append("responseTimeMs", responseTimeMs);
 
       const res = await fetch("http://localhost:5001/api/twoletterwords/attempt", {
         method: "POST",
