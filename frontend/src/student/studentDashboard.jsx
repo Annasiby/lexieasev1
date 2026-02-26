@@ -1305,11 +1305,7 @@ export default function StudentDashboard() {
       <div style={s.hero}>
         <h1 style={s.heroTitle}>Welcome back, {userInfo?.name || "Student"}! 👋</h1>
         <p style={s.heroSub}>Select a practice area to view your detailed report</p>
-        <div style={s.filterContainer}>
-          {[7, 30, 90].map(t => (
-            <button key={t} style={timeframe === t ? s.filterBtnActive : s.filterBtn} onClick={() => setTimeframe(t)}>{t} Days</button>
-          ))}
-        </div>
+        
       </div>
 
       {/* REPORT CARDS */}

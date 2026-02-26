@@ -125,96 +125,60 @@ export const getNextSentence = async (req, res) => {
 };
 
 //Evaluates sentence attempt and reinforces letter learning
+// ─── REPLACE the logSentenceAttempt function in geminiSentence.js ───────────
+// Only the SentenceAttempt.create() call and the const→let fix need changing.
+// Everything else stays identical.
+
 export const logSentenceAttempt = async (req, res) => {
   console.log("HIT /sentences/attempt", req.body);
   try {
     const studentId = req.user._id;
-    const { sentenceId, expected, spoken, responseTimeMs, visualScore, visualIsHard } = req.body;
+    const { sentenceId, expected, spoken, responseTimeMs, visualIsHard } = req.body;
+
+    // ✅ FIX: was const — cannot reassign a const
+    let visualScore = Number(req.body.visualScore) || 0;
 
     if (!sentenceId || !expected || !spoken || responseTimeMs === undefined) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing required fields",
-      });
+      return res.status(400).json({ success: false, error: "Missing required fields" });
     }
 
-    // Verify active sentence
-    const sentenceState = await SentenceState.findOne({
-      studentId,
-      sentenceId,
-    });
-    console.log("ATTEMPT UPDATE", {
-    sentenceId,
-    expected,
-    studentId,
-    });
+    const sentenceState = await SentenceState.findOne({ studentId, sentenceId });
+    console.log("ATTEMPT UPDATE", { sentenceId, expected, studentId });
 
     if (!sentenceState) {
-      return res.status(409).json({
-        success: false,
-        error: "No active sentence or sentence mismatch",
-      });
+      return res.status(409).json({ success: false, error: "No active sentence or sentence mismatch" });
     }
 
-    // Normalize text
+    // Normalize
     const normalize = (text) =>
-      text
-        .toLowerCase()
-        .replace(/[^a-z\s]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
+      text.toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
 
-    const expectedNorm = normalize(expected);
-    const spokenNorm = normalize(spoken);
-
+    const expectedNorm  = normalize(expected);
+    const spokenNorm    = normalize(spoken);
     const expectedWords = expectedNorm.split(" ");
-    const spokenWords = spokenNorm.split(" ");
+    const spokenWords   = spokenNorm.split(" ");
 
-    // Sentence-level correctness   
-    const matchedWords = expectedWords.filter((word) =>
-      spokenWords.includes(word)
-    );
+    const matchedWords      = expectedWords.filter(w => spokenWords.includes(w));
+    const sentenceAccuracy  = matchedWords.length / expectedWords.length;
+    const sentenceCorrect   = sentenceAccuracy >= 0.7;
 
-    const sentenceAccuracy =
-      matchedWords.length / expectedWords.length;
-
-    const sentenceCorrect = sentenceAccuracy >= 0.7;
-
-    // Extract letter-level errors   
+    // Problem letters
     const problemLetters = new Set();
-
     const minLen = Math.min(expectedNorm.length, spokenNorm.length);
-
     for (let i = 0; i < minLen; i++) {
       const expChar = expectedNorm[i];
-      const spkChar = spokenNorm[i];
-
-      if (expChar !== spkChar) {
-        if (expChar >= "a" && expChar <= "z") {
-          problemLetters.add(expChar);
-        }
+      if (expChar !== spokenNorm[i] && expChar >= "a" && expChar <= "z") {
+        problemLetters.add(expChar);
       }
     }
 
-    // Update SentenceState   
-    const fluencyScore = Math.min(1, 3000 / responseTimeMs);
-    if (!visualScore) visualScore = 0;
+    // Reward
+    const fluencyScore  = Math.min(1, 3000 / responseTimeMs);
     const visionPenalty = visualScore * 0.2;
+    const sentenceReward = 0.6 * (sentenceCorrect ? 1 : 0) + 0.4 * fluencyScore;
+    const finalReward    = Math.max(0, sentenceReward - visionPenalty);
 
-    const sentenceReward =
-      0.6 * (sentenceCorrect ? 1 : 0) +
-      0.4 * fluencyScore;
-
-    const finalReward = Math.max(0, sentenceReward - visionPenalty);
-
-    console.log("REWARD DEBUG", {
-    responseTimeMs,
-    fluencyScore,
-    sentenceCorrect,
-    sentenceReward,
-    visualScore,
-    visualIsHard
-  });
+    console.log("REWARD DEBUG", { responseTimeMs, fluencyScore, sentenceCorrect, sentenceReward, visualScore, visualIsHard });
 
     await updateBanditState(sentenceState, sentenceReward);
     sentenceState.isActive = false;
@@ -222,50 +186,38 @@ export const logSentenceAttempt = async (req, res) => {
 
     // Reinforce LetterState
     for (const letter of problemLetters) {
-      const letterState = await LetterState.findOne({
-        studentId,
-        letter,
-      });
-
+      const letterState = await LetterState.findOne({ studentId, letter });
       if (!letterState) continue;
-
-      // Small penalty, not harsh
-      const letterPenalty = 0.2;
-
-      updateBanditState(letterState, -letterPenalty);
+      updateBanditState(letterState, -0.2);
       await letterState.save();
     }
 
-
-    // 🔥 SAVE ATTEMPT FOR REPORT GENERATION
-await SentenceAttempt.create({
-  studentId,
-  sentenceId,
-  expected,
-  spoken,
-  sentenceCorrect,
-  sentenceAccuracy,
-  responseTimeMs,
-  problemLetters: Array.from(problemLetters),
-});
-
-    // Respond
-    return res.json({
-      success: true,
+    // ✅ SAVE ATTEMPT — now includes eye-tracking fields
+    await SentenceAttempt.create({
+      studentId,
+      sentenceId,
+      expected,
+      spoken,
       sentenceCorrect,
       sentenceAccuracy,
+      responseTimeMs,
       problemLetters: Array.from(problemLetters),
-      message: sentenceCorrect
+      visualScore,                          // ✅ new
+      visualIsHard: Boolean(visualIsHard),  // ✅ new
+    });
+
+    return res.json({
+      success:          true,
+      sentenceCorrect,
+      sentenceAccuracy,
+      problemLetters:   Array.from(problemLetters),
+      message:          sentenceCorrect
         ? "Good job! Keep going."
         : "Nice try! Focus on the highlighted sounds.",
     });
 
   } catch (err) {
     console.error("logSentenceAttempt error:", err);
-    return res.status(500).json({
-      success: false,
-      error: "Internal server error",
-    });
+    return res.status(500).json({ success: false, error: "Internal server error" });
   }
-  
 };

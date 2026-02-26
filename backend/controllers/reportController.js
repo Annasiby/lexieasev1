@@ -478,6 +478,8 @@ export const getLetterReport = async (req, res) => {
 /* ===============================
    SENTENCE REPORT
 ================================ */
+// ─── reportController.js  (getSentenceReport only — paste over old function) ───
+
 export const getSentenceReport = async (req, res) => {
   try {
     const studentId = req.user._id;
@@ -492,79 +494,117 @@ export const getSentenceReport = async (req, res) => {
 
     if (!attempts.length) return res.json({ success: true, metrics: null });
 
-    const total = attempts.length;
-    const correct = attempts.filter(a => a.sentenceCorrect).length;
-    const avgAccuracy = attempts.reduce((s, a) => s + (a.sentenceAccuracy || 0), 0) / total;
-    const avgResponseTime = attempts.reduce((s, a) => s + (a.responseTimeMs || 0), 0) / total;
+    const total        = attempts.length;
+    const correct      = attempts.filter(a => a.sentenceCorrect).length;
+    const avgAccuracy  = attempts.reduce((s, a) => s + (a.sentenceAccuracy  || 0), 0) / total;
+    const avgRT        = attempts.reduce((s, a) => s + (a.responseTimeMs    || 0), 0) / total;
 
-    // Trend
+    // ── Eye-tracking aggregates ─────────────────────────────────
+    const eyeAttempts  = attempts.filter(a => a.visualScore > 0);
+    const avgVisual    = eyeAttempts.length
+      ? eyeAttempts.reduce((s, a) => s + (a.visualScore || 0), 0) / eyeAttempts.length
+      : 0;
+    const hardCount    = attempts.filter(a => a.visualIsHard).length;
+    const eyeTracked   = eyeAttempts.length;
+
+    // Visual hesitation level label
+    const hesitationLevel =
+      avgVisual < 0.3 ? "Low"
+      : avgVisual < 0.6 ? "Moderate"
+      : "High";
+
+    // ── Trend (>= 2 attempts) ───────────────────────────────────
     let trend = { direction: "insufficient_data", change: 0, recentAccuracy: 0, previousAvg: 0 };
     if (attempts.length >= 2) {
-      const half = Math.floor(attempts.length / 2);
-      const firstAvg = attempts.slice(0, half).reduce((s, a) => s + (a.sentenceAccuracy || 0), 0) / half;
+      const half      = Math.floor(attempts.length / 2);
+      const firstAvg  = attempts.slice(0, half).reduce((s, a) => s + (a.sentenceAccuracy || 0), 0) / half;
       const secondAvg = attempts.slice(half).reduce((s, a) => s + (a.sentenceAccuracy || 0), 0) / (attempts.length - half);
-      const change = firstAvg === 0 ? 0 : ((secondAvg - firstAvg) / firstAvg) * 100;
+      const change    = firstAvg === 0 ? 0 : ((secondAvg - firstAvg) / firstAvg) * 100;
       trend = {
-        direction: change > 5 ? "improving" : change < -5 ? "declining" : "stable",
-        change: change.toFixed(1),
+        direction:      change > 5 ? "improving" : change < -5 ? "declining" : "stable",
+        change:         change.toFixed(1),
         recentAccuracy: (secondAvg * 100).toFixed(1),
-        previousAvg: firstAvg,
+        previousAvg:    firstAvg,
       };
     }
 
-    // Problem letters
+    // ── Problem letters ─────────────────────────────────────────
     const letterFreq = {};
-    attempts.forEach(a => (a.problemLetters || []).forEach(l => { letterFreq[l] = (letterFreq[l] || 0) + 1; }));
+    attempts.forEach(a => (a.problemLetters || []).forEach(l => {
+      letterFreq[l] = (letterFreq[l] || 0) + 1;
+    }));
     const problemLetters = Object.entries(letterFreq)
       .sort(([, a], [, b]) => b - a).slice(0, 5)
-      .map(([letter, count]) => ({ letter, errorCount: count, errorRate: ((count / total) * 100).toFixed(1) }));
+      .map(([letter, count]) => ({
+        letter,
+        errorCount: count,
+        errorRate: ((count / total) * 100).toFixed(1),
+      }));
 
-    // Difficult sentences
+    // ── Difficult sentences ──────────────────────────────────────
     const sentenceStats = {};
     attempts.forEach(a => {
-      if (!sentenceStats[a.sentenceId]) sentenceStats[a.sentenceId] = { attempts: 0, correct: 0, totalTime: 0 };
-      sentenceStats[a.sentenceId].attempts++;
-      if (a.sentenceCorrect) sentenceStats[a.sentenceId].correct++;
-      sentenceStats[a.sentenceId].totalTime += (a.responseTimeMs || 0);
+      if (!sentenceStats[a.sentenceId])
+        sentenceStats[a.sentenceId] = { attempts: 0, correct: 0, totalTime: 0, totalVisual: 0, visualCount: 0 };
+      const s = sentenceStats[a.sentenceId];
+      s.attempts++;
+      if (a.sentenceCorrect) s.correct++;
+      s.totalTime   += (a.responseTimeMs || 0);
+      if (a.visualScore > 0) { s.totalVisual += a.visualScore; s.visualCount++; }
     });
     const difficultSentences = Object.entries(sentenceStats)
       .map(([id, s]) => ({
-        sentence: id,
-        attempts: s.attempts,
-        successRate: ((s.correct / s.attempts) * 100).toFixed(1),
-        avgTime: Math.round(s.totalTime / s.attempts)
+        sentence:     id,
+        attempts:     s.attempts,
+        successRate:  ((s.correct / s.attempts) * 100).toFixed(1),
+        avgTime:      Math.round(s.totalTime / s.attempts),
+        avgVisual:    s.visualCount ? (s.totalVisual / s.visualCount).toFixed(2) : "0.00",
       }))
       .sort((a, b) => parseFloat(a.successRate) - parseFloat(b.successRate))
       .slice(0, 3);
 
-    // Daily
+    // ── Daily ────────────────────────────────────────────────────
     const groups = {};
     attempts.forEach(a => {
       const date = new Date(a.createdAt).toISOString().split("T")[0];
-      if (!groups[date]) groups[date] = { attempts: 0, correct: 0, totalAccuracy: 0 };
-      groups[date].attempts++;
-      if (a.sentenceCorrect) groups[date].correct++;
-      groups[date].totalAccuracy += (a.sentenceAccuracy || 0);
+      if (!groups[date]) groups[date] = { attempts: 0, correct: 0, totalAccuracy: 0, totalVisual: 0, visualCount: 0 };
+      const g = groups[date];
+      g.attempts++;
+      if (a.sentenceCorrect) g.correct++;
+      g.totalAccuracy += (a.sentenceAccuracy || 0);
+      if (a.visualScore > 0) { g.totalVisual += a.visualScore; g.visualCount++; }
     });
-    const daily = Object.entries(groups).map(([date, s]) => ({
+    const daily = Object.entries(groups).map(([date, g]) => ({
       date,
-      attempts: s.attempts,
-      accuracy: ((s.totalAccuracy / s.attempts) * 100).toFixed(1),
-      successRate: ((s.correct / s.attempts) * 100).toFixed(1),
+      attempts:    g.attempts,
+      accuracy:    ((g.totalAccuracy / g.attempts) * 100).toFixed(1),
+      successRate: ((g.correct / g.attempts) * 100).toFixed(1),
+      avgVisual:   g.visualCount ? (g.totalVisual / g.visualCount).toFixed(2) : "0.00",
     }));
 
-    // Feedback — now works because genSentenceFeedback is defined at top of file
-    const feedback = genSentenceFeedback({ avgAccuracy, trend, problemLetters, avgResponseTime, correctAttempts: correct, total });
+    // ── Feedback ─────────────────────────────────────────────────
+    const feedback = genSentenceFeedback({
+      avgAccuracy, trend, problemLetters,
+      avgResponseTime: avgRT, correctAttempts: correct, total,
+      avgVisual, hardCount, eyeTracked,
+    });
 
     return res.json({
       success: true,
       metrics: {
         overview: {
-          totalAttempts: total,
-          correctAttempts: correct,
-          successRate: ((correct / total) * 100).toFixed(1),
+          totalAttempts:      total,
+          correctAttempts:    correct,
+          successRate:        ((correct / total) * 100).toFixed(1),
           accuracyPercentage: (avgAccuracy * 100).toFixed(1),
-          avgResponseTime: Math.round(avgResponseTime),
+          avgResponseTime:    Math.round(avgRT),
+        },
+        eyeTracking: {
+          tracked:          eyeTracked,
+          avgVisualScore:   avgVisual.toFixed(3),
+          hesitationLevel,
+          hardSessions:     hardCount,
+          hardRate:         total > 0 ? ((hardCount / total) * 100).toFixed(1) : "0.0",
         },
         trend,
         problemLetters,
@@ -579,3 +619,69 @@ export const getSentenceReport = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
+// ─── Also update genSentenceFeedback to accept eye-tracking ─────
+function genSentenceFeedback({ avgAccuracy, trend, problemLetters, avgResponseTime,
+  correctAttempts, total, avgVisual = 0, hardCount = 0, eyeTracked = 0 }) {
+
+  const messages        = [];
+  const recommendations = [];
+
+  // Accuracy
+  if (avgAccuracy >= 0.9)      messages.push("Excellent work! Your pronunciation is very strong.");
+  else if (avgAccuracy >= 0.7) messages.push("Good progress! Keep practising to improve accuracy.");
+  else                         messages.push("Keep trying! Focus on the problem areas highlighted below.");
+
+  // Trend
+  if (trend.direction === "improving") {
+    messages.push(`Great job! Accuracy improved by ${Math.abs(parseFloat(trend.change))}% recently.`);
+  } else if (trend.direction === "declining") {
+    messages.push(`Accuracy dropped by ${Math.abs(parseFloat(trend.change))}%. Let's focus on problem areas.`);
+    recommendations.push("Take more time reading each sentence before recording");
+  }
+
+  // Speed
+  if (avgResponseTime < 2000)      messages.push("Your response time is excellent!");
+  else if (avgResponseTime > 5000) {
+    messages.push("Try to respond a bit faster as you gain confidence.");
+    recommendations.push("Practise reading sentences aloud before recording");
+  }
+
+  // Eye-tracking
+  if (eyeTracked > 0) {
+    if (avgVisual >= 0.6) {
+      messages.push("Eye-tracking shows significant visual hesitation — your eyes are pausing frequently.");
+      recommendations.push("Practise smooth left-to-right eye movement across sentences");
+      recommendations.push("Use a finger or pointer to guide your eyes while reading");
+    } else if (avgVisual >= 0.3) {
+      messages.push("Moderate visual hesitation detected. Eye movement is developing.");
+      recommendations.push("Try reading sentences in larger font to reduce tracking effort");
+    } else {
+      messages.push("Great eye movement! Minimal visual hesitation detected.");
+    }
+
+    if (hardCount > 0) {
+      recommendations.push(`${hardCount} session${hardCount>1?"s":""} flagged as visually hard — consider practising those sentences again`);
+    }
+  }
+
+  // Problem letters
+  if (problemLetters.length > 0) {
+    recommendations.push(`Focus on these sounds: ${problemLetters.slice(0, 3).map(l => l.letter).join(", ")}`);
+  }
+
+  // Low accuracy
+  if ((correctAttempts / total) * 100 < 50) {
+    recommendations.push("Review the pronunciation guide for difficult sounds");
+    recommendations.push("Practise in a quiet environment to reduce distractions");
+  }
+
+  const motivationalQuote =
+    avgAccuracy >= 0.9      ? "You're mastering this! Keep up the fantastic work! 🌟"
+    : trend.direction === "improving"
+    ? "Every practice session makes you better. You're on the right track! 📈"
+    : "Progress takes time. Keep practising, you've got this! 💪";
+
+  return { messages, recommendations, motivationalQuote };
+}
