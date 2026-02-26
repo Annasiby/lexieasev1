@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Signup() {
@@ -7,10 +7,33 @@ export default function Signup() {
     email: "",
     password: "",
     role: "student",
+    therapistId: "",
   });
+  const [therapists, setTherapists] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingTherapists, setLoadingTherapists] = useState(false);
   const navigate = useNavigate();
+
+  // Fetch therapists on component mount
+  useEffect(() => {
+    fetchTherapists();
+  }, []);
+
+  const fetchTherapists = async () => {
+    try {
+      setLoadingTherapists(true);
+      const response = await fetch("/api/auth/therapists");
+      const data = await response.json();
+      if (data.success) {
+        setTherapists(data.therapists || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch therapists:", err);
+    } finally {
+      setLoadingTherapists(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -25,12 +48,19 @@ export default function Signup() {
     setLoading(true);
 
     try {
+      // Send therapistId only if role is student and a therapist is selected
+      const submitData = {
+        ...formData,
+        // Empty string for therapistId for non-students or if not selected
+        therapistId: formData.role === "student" ? formData.therapistId : undefined
+      };
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
         credentials: "include",
       });
 
@@ -50,6 +80,9 @@ export default function Signup() {
           break;
         case "teacher":
           navigate("/teacher/dashboard");
+          break;
+        case "therapist":
+          navigate("/therapist/dashboard");
           break;
         case "parent":
           navigate("/parent/dashboard");
@@ -105,6 +138,19 @@ export default function Signup() {
           minLength={6}
         />
 
+        {/* show age field when creating a student */}
+        {formData.role === "student" && (
+          <input
+            type="number"
+            name="age"
+            placeholder="Age (optional)"
+            style={auth.input}
+            value={formData.age}
+            onChange={handleChange}
+            min="0"
+          />
+        )}
+
         <select
           name="role"
           style={auth.select}
@@ -113,8 +159,34 @@ export default function Signup() {
         >
           <option value="student">Student</option>
           <option value="teacher">Teacher</option>
+          <option value="therapist">Therapist</option>
           <option value="parent">Parent</option>
         </select>
+
+        {formData.role === "student" && (
+          <div style={auth.therapistContainer}>
+            <label style={auth.label}>Select a Therapist (Optional)</label>
+            <select
+              name="therapistId"
+              style={auth.select}
+              value={formData.therapistId}
+              onChange={handleChange}
+            >
+              <option value="">-- No therapist selected --</option>
+              {loadingTherapists ? (
+                <option disabled>Loading therapists...</option>
+              ) : therapists.length > 0 ? (
+                therapists.map((therapist) => (
+                  <option key={therapist._id} value={therapist._id}>
+                    {therapist.name} ({therapist.email})
+                  </option>
+                ))
+              ) : (
+                <option disabled>No therapists available</option>
+              )}
+            </select>
+          </div>
+        )}
 
         <button type="submit" style={auth.button} disabled={loading}>
           {loading ? "Creating Account..." : "Sign Up"}
@@ -216,5 +288,19 @@ const auth = {
     borderRadius: "8px",
     fontSize: "14px",
     border: "1px solid #fecaca",
+  },
+  therapistContainer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    padding: "12px",
+    background: "#f0f9ff",
+    borderRadius: "8px",
+    border: "1px solid #bfdbfe",
+  },
+  label: {
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#1e40af",
   },
 };

@@ -51,6 +51,9 @@ export default function Login() {
         case "teacher":
           navigate("/teacher/dashboard");
           break;
+        case "therapist":
+          navigate("/therapist/dashboard");
+          break;
         case "parent":
           navigate("/parent/dashboard");
           break;
