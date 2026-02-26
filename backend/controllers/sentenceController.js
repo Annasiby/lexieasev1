@@ -129,6 +129,103 @@ export const getNextSentence = async (req, res) => {
 // Only the SentenceAttempt.create() call and the const→let fix need changing.
 // Everything else stays identical.
 
+// export const logSentenceAttempt = async (req, res) => {
+//   console.log("HIT /sentences/attempt", req.body);
+//   try {
+//     const studentId = req.user._id;
+//     const { sentenceId, expected, spoken, responseTimeMs, visualIsHard } = req.body;
+
+//     // ✅ FIX: was const — cannot reassign a const
+//     let visualScore = Number(req.body.visualScore) || 0;
+
+//     if (!sentenceId || !expected || !spoken || responseTimeMs === undefined) {
+//       return res.status(400).json({ success: false, error: "Missing required fields" });
+//     }
+
+//     const sentenceState = await SentenceState.findOne({ studentId, sentenceId });
+//     console.log("ATTEMPT UPDATE", { sentenceId, expected, studentId });
+
+//     if (!sentenceState) {
+//       return res.status(409).json({ success: false, error: "No active sentence or sentence mismatch" });
+//     }
+
+//     // Normalize
+//     const normalize = (text) =>
+//       text.toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+
+//     const expectedNorm  = normalize(expected);
+//     const spokenNorm    = normalize(spoken);
+//     const expectedWords = expectedNorm.split(" ");
+//     const spokenWords   = spokenNorm.split(" ");
+
+//     const matchedWords      = expectedWords.filter(w => spokenWords.includes(w));
+//     const sentenceAccuracy  = matchedWords.length / expectedWords.length;
+//     const sentenceCorrect   = sentenceAccuracy >= 0.7;
+
+//     // Problem letters
+//     const problemLetters = new Set();
+//     const minLen = Math.min(expectedNorm.length, spokenNorm.length);
+//     for (let i = 0; i < minLen; i++) {
+//       const expChar = expectedNorm[i];
+//       if (expChar !== spokenNorm[i] && expChar >= "a" && expChar <= "z") {
+//         problemLetters.add(expChar);
+//       }
+//     }
+
+//     // Reward
+//     const fluencyScore  = Math.min(1, 3000 / responseTimeMs);
+//     const visionPenalty = visualScore * 0.2;
+//     const sentenceReward = 0.6 * (sentenceCorrect ? 1 : 0) + 0.4 * fluencyScore;
+//     const finalReward    = Math.max(0, sentenceReward - visionPenalty);
+
+//     console.log("REWARD DEBUG", { responseTimeMs, fluencyScore, sentenceCorrect, sentenceReward, visualScore, visualIsHard });
+
+//     await updateBanditState(sentenceState, sentenceReward);
+//     sentenceState.isActive = false;
+//     await sentenceState.save();
+
+//     // Reinforce LetterState
+//     for (const letter of problemLetters) {
+//       const letterState = await LetterState.findOne({ studentId, letter });
+//       if (!letterState) continue;
+//       updateBanditState(letterState, -0.2);
+//       await letterState.save();
+//     }
+
+//     // ✅ SAVE ATTEMPT — now includes eye-tracking fields
+//     await SentenceAttempt.create({
+//       studentId,
+//       sentenceId,
+//       expected,
+//       spoken,
+//       sentenceCorrect,
+//       sentenceAccuracy,
+//       responseTimeMs,
+//       problemLetters: Array.from(problemLetters),
+//       visualScore,                          // ✅ new
+//       visualIsHard: Boolean(visualIsHard),  // ✅ new
+//     });
+
+//     return res.json({
+//       success:          true,
+//       sentenceCorrect,
+//       sentenceAccuracy,
+//       problemLetters:   Array.from(problemLetters),
+//       message:          sentenceCorrect
+//         ? "Good job! Keep going."
+//         : "Nice try! Focus on the highlighted sounds.",
+//     });
+
+//   } catch (err) {
+//     console.error("logSentenceAttempt error:", err);
+//     return res.status(500).json({ success: false, error: "Internal server error" });
+//   }
+// };
+
+// ─── REPLACE the logSentenceAttempt function in geminiSentence.js ───────────
+// Only the SentenceAttempt.create() call and the const→let fix need changing.
+// Everything else stays identical.
+
 export const logSentenceAttempt = async (req, res) => {
   console.log("HIT /sentences/attempt", req.body);
   try {
@@ -158,17 +255,45 @@ export const logSentenceAttempt = async (req, res) => {
     const expectedWords = expectedNorm.split(" ");
     const spokenWords   = spokenNorm.split(" ");
 
-    const matchedWords      = expectedWords.filter(w => spokenWords.includes(w));
-    const sentenceAccuracy  = matchedWords.length / expectedWords.length;
-    const sentenceCorrect   = sentenceAccuracy >= 0.7;
+    // ✅ Position-aware matching: compare word-by-word at same index
+    // Also tries the spoken word at nearby positions to handle insertions/deletions
+    let matchedCount = 0;
+    const wrongWords = []; // expected words that were wrong
 
-    // Problem letters
+    for (let i = 0; i < expectedWords.length; i++) {
+      const exp = expectedWords[i];
+      // Check exact position first, then ±1 positions to tolerate minor insertions
+      const matched =
+        spokenWords[i] === exp ||
+        spokenWords[i - 1] === exp ||
+        spokenWords[i + 1] === exp;
+
+      if (matched) {
+        matchedCount++;
+      } else {
+        wrongWords.push(exp);
+      }
+    }
+
+    const sentenceAccuracy = matchedCount / expectedWords.length;
+    // ✅ Stricter threshold: all words must match (1.0) or at most 1 word wrong
+    const sentenceCorrect  = wrongWords.length === 0 ||
+      (wrongWords.length === 1 && expectedWords.length >= 6);
+
+    // ✅ Problem letters: extract first letters of wrong words (word-level errors)
     const problemLetters = new Set();
-    const minLen = Math.min(expectedNorm.length, spokenNorm.length);
-    for (let i = 0; i < minLen; i++) {
-      const expChar = expectedNorm[i];
-      if (expChar !== spokenNorm[i] && expChar >= "a" && expChar <= "z") {
-        problemLetters.add(expChar);
+    for (const word of wrongWords) {
+      // Add the first letter and any letter that differs from the spoken version
+      const spokenEquiv = spokenWords[expectedWords.indexOf(word)];
+      if (word[0]) problemLetters.add(word[0]); // first letter of missed word
+      if (spokenEquiv) {
+        const minLen = Math.min(word.length, spokenEquiv.length);
+        for (let i = 0; i < minLen; i++) {
+          if (word[i] !== spokenEquiv[i]) {
+            problemLetters.add(word[i]);
+            break; // first mismatch char per word is enough
+          }
+        }
       }
     }
 
