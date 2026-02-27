@@ -57,6 +57,9 @@ export default function Login() {
         case "parent":
           navigate("/parent/dashboard");
           break;
+        case "guardian":
+          navigate("/guardian/dashboard");
+          break;
         case "admin":
           navigate("/admin/dashboard");
           break;

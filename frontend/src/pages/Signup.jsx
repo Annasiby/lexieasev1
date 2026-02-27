@@ -8,16 +8,20 @@ export default function Signup() {
     password: "",
     role: "student",
     therapistId: "",
+    guardianId: "",
   });
   const [therapists, setTherapists] = useState([]);
+  const [guardians, setGuardians] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingTherapists, setLoadingTherapists] = useState(false);
+  const [loadingGuardians, setLoadingGuardians] = useState(false);
   const navigate = useNavigate();
 
-  // Fetch therapists on component mount
+  // Fetch therapists and guardians on component mount
   useEffect(() => {
     fetchTherapists();
+    fetchGuardians();
   }, []);
 
   const fetchTherapists = async () => {
@@ -32,6 +36,21 @@ export default function Signup() {
       console.error("Failed to fetch therapists:", err);
     } finally {
       setLoadingTherapists(false);
+    }
+  };
+
+  const fetchGuardians = async () => {
+    try {
+      setLoadingGuardians(true);
+      const response = await fetch("/api/auth/guardians");
+      const data = await response.json();
+      if (data.success) {
+        setGuardians(data.guardians || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch guardians:", err);
+    } finally {
+      setLoadingGuardians(false);
     }
   };
 
@@ -51,8 +70,9 @@ export default function Signup() {
       // Send therapistId only if role is student and a therapist is selected
       const submitData = {
         ...formData,
-        // Empty string for therapistId for non-students or if not selected
-        therapistId: formData.role === "student" ? formData.therapistId : undefined
+        // Only send therapistId or guardianId when student
+        therapistId: formData.role === "student" ? formData.therapistId : undefined,
+        guardianId: formData.role === "student" ? formData.guardianId : undefined,
       };
 
       const response = await fetch("/api/auth/register", {
@@ -86,6 +106,9 @@ export default function Signup() {
           break;
         case "parent":
           navigate("/parent/dashboard");
+          break;
+        case "guardian":
+          navigate("/guardian/dashboard");
           break;
         case "admin":
           navigate("/admin/dashboard");
@@ -161,31 +184,57 @@ export default function Signup() {
           <option value="teacher">Teacher</option>
           <option value="therapist">Therapist</option>
           <option value="parent">Parent</option>
+          <option value="guardian">Guardian</option>
         </select>
 
         {formData.role === "student" && (
-          <div style={auth.therapistContainer}>
-            <label style={auth.label}>Select a Therapist (Optional)</label>
-            <select
-              name="therapistId"
-              style={auth.select}
-              value={formData.therapistId}
-              onChange={handleChange}
-            >
-              <option value="">-- No therapist selected --</option>
-              {loadingTherapists ? (
-                <option disabled>Loading therapists...</option>
-              ) : therapists.length > 0 ? (
-                therapists.map((therapist) => (
-                  <option key={therapist._id} value={therapist._id}>
-                    {therapist.name} ({therapist.email})
-                  </option>
-                ))
-              ) : (
-                <option disabled>No therapists available</option>
-              )}
-            </select>
-          </div>
+          <>
+            <div style={auth.therapistContainer}>
+              <label style={auth.label}>Select a Therapist (Optional)</label>
+              <select
+                name="therapistId"
+                style={auth.select}
+                value={formData.therapistId}
+                onChange={handleChange}
+              >
+                <option value="">-- No therapist selected --</option>
+                {loadingTherapists ? (
+                  <option disabled>Loading therapists...</option>
+                ) : therapists.length > 0 ? (
+                  therapists.map((therapist) => (
+                    <option key={therapist._id} value={therapist._id}>
+                      {therapist.name} ({therapist.email})
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No therapists available</option>
+                )}
+              </select>
+            </div>
+
+            <div style={auth.therapistContainer}>
+              <label style={auth.label}>Select a Guardian (Optional)</label>
+              <select
+                name="guardianId"
+                style={auth.select}
+                value={formData.guardianId}
+                onChange={handleChange}
+              >
+                <option value="">-- No guardian selected --</option>
+                {loadingGuardians ? (
+                  <option disabled>Loading guardians...</option>
+                ) : guardians.length > 0 ? (
+                  guardians.map((g) => (
+                    <option key={g._id} value={g._id}>
+                      {g.name} ({g.email})
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No guardians available</option>
+                )}
+              </select>
+            </div>
+          </>
         )}
 
         <button type="submit" style={auth.button} disabled={loading}>
