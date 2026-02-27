@@ -102,6 +102,106 @@ export default function GuardianStudentDetail() {
     }
   };
 
+  // ---------- Helpers for word/sentence visuals ----------
+  const computeTrend = (attempts) => {
+    if (!attempts || attempts.length < 4) return null;
+    const mid = Math.floor(attempts.length / 2);
+    const older = attempts.slice(0, mid);
+    const recent = attempts.slice(mid);
+    const olderAvg = older.filter(a => a.correct).length / older.length;
+    const recentAvg = recent.filter(a => a.correct).length / recent.length;
+    const change = ((recentAvg - olderAvg) * 100).toFixed(1);
+    const direction =
+      Math.abs(change) < 2 ? 'stable' : change > 0 ? 'improving' : 'declining';
+    return {
+      direction,
+      change,
+      previousAvg: (olderAvg * 100).toFixed(1),
+      recentAccuracy: (recentAvg * 100).toFixed(1),
+    };
+  };
+
+  const deriveWordMetrics = (data) => {
+    if (!data) return null;
+    const attempts = data.attempts || [];
+    const total = attempts.length;
+    const correct = attempts.filter(a => a.correct).length;
+    const successRate = total ? ((correct / total) * 100).toFixed(1) : 0;
+    const avgAccuracy = total
+      ? (
+          attempts.reduce((sum, a) => sum + (a.accuracy || 0), 0) / total
+        ).toFixed(1)
+      : 0;
+    const avgResponse = total
+      ? (
+          attempts.reduce((sum, a) => sum + (a.responseTime || 0), 0) / total
+        ).toFixed(0)
+      : 0;
+    const trend = computeTrend(attempts);
+    const wordMap = {};
+    attempts.forEach(a => {
+      const w = a.word || '';
+      if (!wordMap[w]) wordMap[w] = { errors: 0, attempts: 0 };
+      wordMap[w].attempts++;
+      if (!a.correct) wordMap[w].errors++;
+    });
+    const problemWords = Object.entries(wordMap)
+      .map(([word, v]) => ({
+        word,
+        errorCount: v.errors,
+        errorRate: v.attempts ? ((v.errors / v.attempts) * 100).toFixed(1) : 0,
+      }))
+      .filter(o => o.errorCount > 0);
+    // phoneme problems: letters from failed words
+    const letterMap = {};
+    attempts.filter(a => !a.correct).forEach(a => {
+      (a.word || "").split("").forEach(ch => {
+        const l = ch.toLowerCase();
+        letterMap[l] = (letterMap[l] || 0) + 1;
+      });
+    });
+    const problemLetters = Object.entries(letterMap).map(([letter, count]) => ({
+      letter,
+      errorCount: count,
+      errorRate: null,
+    }));
+    return { total, successRate, avgAccuracy, avgResponse, trend, problemWords, problemLetters, correctAttempts: correct };
+  };
+
+  const deriveSentenceMetrics = (data) => {
+    if (!data) return null;
+    const attempts = data.attempts || [];
+    const total = attempts.length;
+    const correct = attempts.filter(a => a.correct).length;
+    const successRate = total ? ((correct / total) * 100).toFixed(1) : 0;
+    const avgAccuracy = total
+      ? (
+          attempts.reduce((sum, a) => sum + (a.accuracy || 0), 0) / total
+        ).toFixed(1)
+      : 0;
+    const avgResponse = total
+      ? (
+          attempts.reduce((sum, a) => sum + (a.responseTime || 0), 0) / total
+        ).toFixed(0)
+      : 0;
+    const trend = computeTrend(attempts);
+    // letters from incorrect sentences as problem phonemes
+    const letterMap = {};
+    attempts.filter(a => !a.correct).forEach(a => {
+      (a.sentence || "").split("").forEach(ch => {
+        const l = ch.toLowerCase();
+        letterMap[l] = (letterMap[l] || 0) + 1;
+      });
+    });
+    const problemLetters = Object.entries(letterMap).map(([letter, count]) => ({
+      letter,
+      errorCount: count,
+      errorRate: null,
+    }));
+
+    return { total, successRate, avgAccuracy, avgResponse, trend, problemWords: [], problemLetters };
+  };
+
   if (loading && !student) {
     return (
       <div style={styles.container}>
@@ -270,149 +370,392 @@ export default function GuardianStudentDetail() {
       {selectedReport === "letters" && reportData && (
         <div style={styles.reportSection}>
           <h2 style={{...styles.reportTitle, borderBottomColor: currentColor}}>Letters Report</h2>
-          <div style={styles.reportStats}>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Total Letters:</span>
-              <span style={{...styles.statValue, color: currentColor}}>{reportData.letters?.length || 0}</span>
+
+          {/* strength overview grid + legend */}
+          <div style={styles.card}>
+            <h3 style={styles.cardTitle}>🔡 Letter Strength Overview</h3>
+            <p style={styles.cardSubtitle}>
+              🟢 Strong (≥40) &nbsp;·&nbsp; 🟡 Developing (0–39) &nbsp;·&nbsp;
+              🔴 Needs Focus (&lt;0) &nbsp;·&nbsp; ⚪ Not yet practised
+            </p>
+            {/** simplified inline version of LetterStrengthGrid **/}
+            <div style={styles.masteryGrid}>
+              {"abcdefghijklmnopqrstuvwxyz".split("").map((char) => {
+                const item = (reportData.letters || []).find(l => l.letter.toLowerCase() === char);
+                const notPractised = !item || item.attempts === 0;
+                const strength = item ? parseFloat(item.strength) : null;
+                const bg = notPractised   ? "#f1f5f9"
+                  : strength >= 40        ? "#d1fae5"
+                  : strength >= 0         ? "#fef3c7"
+                  :                         "#fee2e2";
+                const textColor = notPractised ? "#94a3b8"
+                  : strength >= 40            ? "#065f46"
+                  : strength >= 0             ? "#92400e"
+                  :                             "#991b1b";
+                return (
+                  <div
+                    key={char}
+                    title={
+                      notPractised
+                        ? `${char.toUpperCase()}: not yet practised`
+                        : `${char.toUpperCase()}: ${item.attempts} attempts · strength ${strength.toFixed(1)}`
+                    }
+                    style={{ ...styles.masteryCell, background: bg, color: textColor }}
+                  >
+                    <span style={styles.masteryLetter}>{char.toUpperCase()}</span>
+                    {!notPractised && (
+                      <span style={styles.masteryPct}>
+                        {strength >= 0 ? "+" : ""}{strength.toFixed(0)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
-          <div style={styles.tableContainer}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.tableHeader}>
-                  <th style={styles.tableCell}>Letter</th>
-                  <th style={styles.tableCell}>Strength</th>
-                  <th style={styles.tableCell}>Attempts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.letters?.map((letter, idx) => (
-                  <tr key={idx} style={styles.tableRow}>
-                    <td style={styles.tableCell}>{letter.letter}</td>
-                    <td style={styles.tableCell}>
-                      <div style={styles.progressBar}>
-                        <div
-                          style={{
-                            ...styles.progressFill,
-                            width: `${letter.strength}%`,
-                            background: currentColor,
-                          }}
-                        />
+
+          {/* problem & strong letters */}
+          <div style={styles.twoColumnGrid}>
+            {(() => {
+              const all = reportData.letters || [];
+              const problems = all.filter(l => parseFloat(l.strength) < 0);
+              const strong = all.filter(l => parseFloat(l.strength) >= 0)
+                                .sort((a,b)=>parseFloat(b.strength)-parseFloat(a.strength));
+              return (
+                <>
+                  {problems.length > 0 && (
+                    <div style={styles.card}>
+                      <h3 style={styles.cardTitle}>⚠️ Letters Needing Focus</h3>
+                      <div style={styles.problemList}>
+                        {problems.map((item, idx) => {
+                          const strength = parseFloat(item.strength);
+                          const barWidth = Math.min(100, Math.abs(strength));
+                          return (
+                            <div key={idx} style={styles.problemItem}>
+                              <div style={{ ...styles.badge, background: "linear-gradient(135deg,#ef4444,#dc2626)" }}>
+                                {item.letter.toUpperCase()}
+                              </div>
+                              <div style={styles.problemInfo}>
+                                <span style={styles.problemCount}>
+                                  {item.attempts} attempt{item.attempts !== 1 ? "s" : ""} · strength {strength.toFixed(1)}
+                                </span>
+                                <div style={styles.progressBarBg}>
+                                  <div style={{ ...styles.progressBarFill, width: `${barWidth}%`, background: "#ef4444" }} />
+                                </div>
+                              </div>
+                              <span style={styles.strengthLabel}>{strength.toFixed(0)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <span>{letter.strength}%</span>
-                    </td>
-                    <td style={styles.tableCell}>{letter.attempts}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  )}
+
+                  {strong.length > 0 && (
+                    <div style={styles.card}>
+                      <h3 style={styles.cardTitle}>✅ Strongest Letters</h3>
+                      <div style={styles.problemList}>
+                        {strong.slice(0, 6).map((item, idx) => {
+                          const strength = parseFloat(item.strength);
+                          const barWidth = Math.min(100, strength);
+                          return (
+                            <div key={idx} style={styles.problemItem}>
+                              <div style={{
+                                ...styles.badge,
+                                background: strength >= 40
+                                  ? "linear-gradient(135deg,#10b981,#059669)"
+                                  : "linear-gradient(135deg,#f59e0b,#d97706)",
+                              }}>
+                                {item.letter.toUpperCase()}
+                              </div>
+                              <div style={styles.problemInfo}>
+                                <span style={styles.problemCount}>
+                                  {item.attempts} attempt{item.attempts !== 1 ? "s" : ""} · strength {strength.toFixed(1)}
+                                </span>
+                                <div style={styles.progressBarBg}>
+                                  <div style={{
+                                    ...styles.progressBarFill,
+                                    width: `${barWidth}%`,
+                                    background: strength >= 40 ? "#10b981" : "#f59e0b",
+                                  }} />
+                                </div>
+                              </div>
+                              <span style={styles.strengthLabel}>{strength.toFixed(0)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+
+          {/* CTA */}
+          <div style={styles.ctaCard}>
+            <div>
+              <h3 style={styles.ctaTitle}>Keep it up! 🚀</h3>
+              <p style={styles.ctaText}>
+                {(reportData.letters || []).some(l=>parseFloat(l.strength)<0)
+                  ? `Focus on: ${(reportData.letters||[])
+                     .filter(l=>parseFloat(l.strength)<0)
+                     .slice(0,3)
+                     .map(l=>l.letter.toUpperCase()).join(", ")}`
+                  : "Great work! Keep practising to maintain your strength scores."}
+              </p>
+            </div>
+            <button style={styles.ctaButton} onClick={() => navigate("/student/letter-level") }>
+              Continue Practice
+            </button>
           </div>
         </div>
       )}
 
       {/* Words Report */}
-      {selectedReport === "words" && reportData && (
-        <div style={styles.reportSection}>
-          <h2 style={{...styles.reportTitle, borderBottomColor: currentColor}}>Words Report</h2>
-          <div style={styles.reportStats}>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Total Attempts:</span>
-              <span style={{...styles.statValue, color: currentColor}}>{reportData.total}</span>
+      {selectedReport === "words" && reportData && (() => {
+        const m = deriveWordMetrics(reportData);
+        return (
+          <div style={styles.reportSection}>
+            <h2 style={{...styles.reportTitle, borderBottomColor: currentColor}}>Words Report</h2>
+            <div style={styles.statsGrid}>
+              <StatCard icon="🎯" label="Success Rate" value={`${m.successRate}%`} trend={m.trend} color="#8b5cf6" />
+              <StatCard icon="⚡" label="Avg Response Time" value={`${(m.avgResponse/1000).toFixed(1)}s`} color="#f59e0b" />
+              <StatCard icon="✅" label="Total Attempts" value={m.total} subValue={`${m.correctAttempts} correct`} color="#10b981" />
+              {m.trend && <StatCard icon="📉" label="Trend" value={
+                m.trend.direction === 'improving' ? '↗ Improving' :
+                m.trend.direction === 'declining' ? '↘ Declining' : '→ Stable'
+              } color={
+                m.trend.direction === 'improving' ? '#10b981' :
+                m.trend.direction === 'declining' ? '#ef4444' : '#3b82f6'
+              } />}
             </div>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Success Rate:</span>
-              <span style={{...styles.statValue, color: currentColor}}>{reportData.successRate}%</span>
+            {m.trend && <TrendCard trend={m.trend} />}
+
+            <div style={styles.twoColumnGrid}>
+              {m.problemWords.length > 0 && (
+                <div style={styles.card}>
+                  <h3 style={styles.cardTitle}>🔡 Problem Words</h3>
+                  <div style={styles.problemList}>
+                    {m.problemWords.map((item, idx) => (
+                      <div key={idx} style={styles.problemItem}>
+                        <div style={{ ...styles.badge, background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+                          {item.word.toUpperCase()}
+                        </div>
+                        <div style={styles.problemInfo}>
+                          <span style={styles.problemCount}>{item.errorCount} errors</span>
+                          <div style={styles.progressBarBg}>
+                            <div style={{ ...styles.progressBarFill, width: `${item.errorRate}%`, background: '#8b5cf6' }} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {m.problemLetters.length > 0 && (
+                <div style={styles.card}>
+                  <h3 style={styles.cardTitle}>🔤 Problem Phonemes</h3>
+                  <div style={styles.problemList}>
+                    {m.problemLetters.map((item, idx) => (
+                      <div key={idx} style={styles.problemItem}>
+                        <div style={{ ...styles.badge, background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
+                          {item.letter.toUpperCase()}
+                        </div>
+                        <div style={styles.problemInfo}>
+                          <span style={styles.problemCount}>{item.errorCount} errors</span>
+                          <div style={styles.progressBarBg}>
+                            <div style={{ ...styles.progressBarFill, width: `${item.errorRate || 0}%`, background: '#ef4444' }} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Average Accuracy:</span>
-              <span style={{...styles.statValue, color: currentColor}}>{reportData.avgAccuracy}%</span>
+
+            <div style={styles.ctaCard}>
+              <div>
+                <h3 style={styles.ctaTitle}>Keep it up! 🚀</h3>
+                <p style={styles.ctaText}>
+                  {m.problemWords.length > 0
+                    ? `Focus on: ${m.problemWords.slice(0,3).map(w=>w.word.toUpperCase()).join(", ")}`
+                    : "Great work! Keep practising to maintain your progress."}
+                </p>
+              </div>
+              <button style={styles.ctaButton} onClick={() => navigate("/student/word-level") }>
+                Continue Practice
+              </button>
             </div>
           </div>
-          <div style={styles.tableContainer}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.tableHeader}>
-                  <th style={styles.tableCell}>Word</th>                  <th style={styles.tableCell}>Spoken</th>                  <th style={styles.tableCell}>Correct</th>
-                  <th style={styles.tableCell}>Accuracy</th>
-                  <th style={styles.tableCell}>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.attempts?.slice(0, 20).map((attempt, idx) => (
-                  <tr key={idx} style={styles.tableRow}>
-                    <td style={styles.tableCell}>{attempt.word}</td>
-                    <td style={styles.tableCell}>{attempt.spoken || ""}</td>
-                    <td style={styles.tableCell}>
-                      {attempt.correct ? "✓" : "✗"}
-                    </td>
-                    <td style={styles.tableCell}>{attempt.accuracy}%</td>
-                    <td style={styles.tableCell}>
-                      {new Date(attempt.date).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Sentences Report */}
-      {selectedReport === "sentences" && reportData && (
-        <div style={styles.reportSection}>
-          <h2 style={{...styles.reportTitle, borderBottomColor: currentColor}}>Sentences Report</h2>
-          <div style={styles.reportStats}>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Total Attempts:</span>
-              <span style={{...styles.statValue, color: currentColor}}>{reportData.total}</span>
+      {selectedReport === "sentences" && reportData && (() => {
+        const m = deriveSentenceMetrics(reportData);
+        return (
+          <div style={styles.reportSection}>
+            <h2 style={{...styles.reportTitle, borderBottomColor: currentColor}}>Sentences Report</h2>
+
+            {/* stat cards */}
+            <div style={styles.statsGrid}>
+              <StatCard icon="🎯" label="Success Rate" value={`${m.successRate}%`} trend={m.trend} color="#8b5cf6" />
+              <StatCard icon="⚡" label="Avg Accuracy" value={`${m.avgAccuracy}%`} color="#f59e0b" />
+              <StatCard icon="⏱️" label="Avg Response" value={`${(m.avgResponse/1000).toFixed(1)}s`} color="#3b82f6" />
+              <StatCard icon="✅" label="Total Attempts" value={m.total} color="#10b981" />
             </div>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Success Rate:</span>
-              <span style={{...styles.statValue, color: currentColor}}>{reportData.successRate}%</span>
+
+            {/* trend card */}
+            {m.trend && <TrendCard trend={m.trend} />}
+
+            {/* problems */}
+            <div style={styles.twoColumnGrid}>
+              {m.problemLetters.length > 0 && (
+                <div style={styles.card}>
+                  <h3 style={styles.cardTitle}>🔤 Problem Phonemes</h3>
+                  <div style={styles.problemList}>
+                    {m.problemLetters.map((item, idx) => (
+                      <div key={idx} style={styles.problemItem}>
+                        <div style={{ ...styles.badge, background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
+                          {item.letter.toUpperCase()}
+                        </div>
+                        <div style={styles.problemInfo}>
+                          <span style={styles.problemCount}>{item.errorCount} errors</span>
+                          <div style={styles.progressBarBg}>
+                            <div style={{ ...styles.progressBarFill, width: `${item.errorRate || 0}%`, background: '#ef4444' }} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Average Accuracy:</span>
-              <span style={{...styles.statValue, color: currentColor}}>{reportData.avgAccuracy}%</span>
+
+            {/* CTA */}
+            <div style={styles.ctaCard}>
+              <div>
+                <h3 style={styles.ctaTitle}>Keep it up! 🚀</h3>
+                <p style={styles.ctaText}>
+                  {m.problemLetters.length > 0
+                    ? `Focus on: ${m.problemLetters.slice(0,3).map(l=>l.letter.toUpperCase()).join(", ")}`
+                    : "Great work! Keep practising to maintain your progress."}
+                </p>
+              </div>
+              <button style={styles.ctaButton} onClick={() => navigate("/student/sentence-level") }>
+                Continue Practice
+              </button>
             </div>
-          </div>
-          <div style={styles.tableContainer}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.tableHeader}>
-                  <th style={styles.tableCell}>Sentence</th>
-                  <th style={styles.tableCell}>Spoken</th>
-                  <th style={styles.tableCell}>Correct</th>
-                  <th style={styles.tableCell}>Accuracy</th>
-                  <th style={styles.tableCell}>Response Time</th>
-                  <th style={styles.tableCell}>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.attempts?.slice(0, 20).map((attempt, idx) => (
-                  <tr key={idx} style={styles.tableRow}>
-                    <td style={{ ...styles.tableCell, maxWidth: "250px" }}>
-                      {attempt.sentence}
-                    </td>
-                    <td style={styles.tableCell}>{attempt.spoken || ""}</td>
-                    <td style={styles.tableCell}>
-                      {attempt.correct ? "✓" : "✗"}
-                    </td>
-                    <td style={styles.tableCell}>{attempt.accuracy}%</td>
-                    <td style={styles.tableCell}>{attempt.responseTime}ms</td>
-                    <td style={styles.tableCell}>
-                      {new Date(attempt.date).toLocaleDateString()}
-                    </td>
+
+            {/* full attempt table for detail */}
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.tableHeader}>
+                    <th style={styles.tableCell}>Sentence</th>
+                    <th style={styles.tableCell}>Spoken</th>
+                    <th style={styles.tableCell}>Correct</th>
+                    <th style={styles.tableCell}>Accuracy</th>
+                    <th style={styles.tableCell}>Response Time</th>
+                    <th style={styles.tableCell}>Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {reportData.attempts?.slice(0, 20).map((attempt, idx) => (
+                    <tr key={idx} style={styles.tableRow}>
+                      <td style={{ ...styles.tableCell, maxWidth: "250px" }}>
+                        {attempt.sentence}
+                      </td>
+                      <td style={styles.tableCell}>{attempt.spoken || ""}</td>
+                      <td style={styles.tableCell}>
+                        {attempt.correct ? "✓" : "✗"}
+                      </td>
+                      <td style={styles.tableCell}>{attempt.accuracy}%</td>
+                      <td style={styles.tableCell}>{attempt.responseTime}ms</td>
+                      <td style={styles.tableCell}>
+                        {new Date(attempt.date).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {loading && (
         <div style={styles.loadingMessage}>Loading report...</div>
       )}
+    </div>
+  );
+}
+
+// ── shared UI components used by words/sentences ─────────────────
+function StatCard({ icon, label, value, subValue, trend, color }) {
+  return (
+    <div style={styles.statCard}>
+      <div style={{ ...styles.statIcon, background: `${color}15` }}>
+        <span style={{ fontSize: 24 }}>{icon}</span>
+      </div>
+      <div style={styles.statContent}>
+        <span style={styles.statLabel}>{label}</span>
+        <h3 style={{ ...styles.statValue, color }}>{value}</h3>
+        {subValue && <span style={styles.statSubValue}>{subValue}</span>}
+        {trend && trend.direction && trend.direction !== 'stable' && (
+          <TrendBadge direction={trend.direction} change={trend.change} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TrendBadge({ direction, change }) {
+  const improving = direction === 'improving';
+  return (
+    <span style={{ ...styles.trendBadge, background: improving ? '#dcfce7' : '#fee2e2', color: improving ? '#16a34a' : '#dc2626' }}>
+      {improving ? '↗' : '↘'} {Math.abs(parseFloat(change))}%
+    </span>
+  );
+}
+
+function TrendCard({ trend }) {
+  const improving = trend.direction === 'improving';
+  const stable = trend.direction === 'stable';
+  return (
+    <div style={{
+      ...styles.trendCard,
+      background: improving
+        ? 'linear-gradient(135deg, #10b981, #34d399)'
+        : stable
+        ? 'linear-gradient(135deg, #3b82f6, #60a5fa)'
+        : 'linear-gradient(135deg, #f59e0b, #fbbf24)'
+    }}>
+      <div style={styles.trendIcon}>{improving ? '🎉' : stable ? '📊' : '💪'}</div>
+      <div style={styles.trendContent}>
+        <h3 style={styles.trendTitle}>
+          {improving ? "You're Improving!" : stable ? "Steady Progress" : "Let's Focus"}
+        </h3>
+        <p style={styles.trendText}>
+          {improving && `Your accuracy increased by ${Math.abs(parseFloat(trend.change))}% recently. Keep it up!`}
+          {stable && "Your performance is consistent. Keep practicing!"}
+          {!improving && !stable && `Recent accuracy dropped by ${Math.abs(parseFloat(trend.change))}%. Focus on problem areas below.`}
+        </p>
+        <div style={styles.trendStats}>
+          <div>
+            <span style={styles.trendStatLabel}>Previous</span>
+            <span style={styles.trendStatValue}>{trend.previousAvg}%</span>
+          </div>
+          <div style={styles.trendArrow}>→</div>
+          <div>
+            <span style={styles.trendStatLabel}>Recent</span>
+            <span style={styles.trendStatValue}>{trend.recentAccuracy}%</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -654,4 +997,42 @@ const styles = {
     marginBottom: 24,
     fontSize: 14,
   },
+
+  /* additional card/grid styles from student letter report */
+  card: { background: "white", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", marginBottom: "24px" },
+  cardTitle: { fontSize: "18px", fontWeight: "700", color: "#0f172a", marginBottom: "8px" },
+  cardSubtitle: { fontSize: "13px", color: "#64748b", marginBottom: "16px" },
+  twoColumnGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px", marginBottom: "24px" },
+  problemList: { display: "flex", flexDirection: "column", gap: "12px" },
+  problemItem: { display: "flex", alignItems: "center", gap: "16px" },
+  badge: { minWidth: "48px", height: "48px", borderRadius: "12px", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: "700", flexShrink: 0 },
+  problemInfo: { flex: 1 },
+  problemCount: { fontSize: "14px", color: "#64748b", display: "block", marginBottom: "6px" },
+  strengthLabel: { fontSize: "13px", fontWeight: "700", color: "#374151", minWidth: "40px", textAlign: "right" },
+  progressBarBg: { height: "8px", background: "#e2e8f0", borderRadius: "4px", overflow: "hidden" },
+  progressBarFill: { height: "100%", borderRadius: "4px", transition: "width 0.3s ease" },
+  masteryGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(68px, 1fr))", gap: "10px" },
+  masteryCell: { borderRadius: "12px", padding: "10px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", cursor: "default", transition: "transform 0.15s" },
+  masteryLetter: { fontSize: "20px", fontWeight: "700" },
+  masteryPct: { fontSize: "11px", fontWeight: "600" },
+  ctaCard: { background: "linear-gradient(135deg, #059669, #10b981)", borderRadius: "20px", padding: "32px", display: "flex", justifyContent: "space-between", alignItems: "center", color: "white", flexWrap: "wrap", gap: "20px" },
+  ctaTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "8px", marginTop: 0 },
+  ctaText: { fontSize: "15px", opacity: 0.9, margin: 0 },
+  ctaButton: { background: "white", color: "#059669", border: "none", padding: "14px 28px", borderRadius: "12px", fontSize: "16px", fontWeight: "700", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
+  // stats/trend card styles (from student reports)
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px", marginBottom: "24px" },
+  statCard: { background: "white", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", gap: "16px", alignItems: "flex-start" },
+  statIcon: { width: "56px", height: "56px", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  statContent: { flex: 1, display: "flex", flexDirection: "column", gap: "4px" },
+  statSubValue: { fontSize: "13px", color: "#64748b" },
+  trendBadge: { display: "inline-block", padding: "4px 8px", borderRadius: "6px", fontSize: "12px", fontWeight: "600", marginTop: "4px" },
+  trendCard: { borderRadius: "20px", padding: "32px", marginBottom: "24px", color: "white", display: "flex", gap: "24px", alignItems: "center", boxShadow: "0 10px 25px rgba(0,0,0,0.15)" },
+  trendIcon: { fontSize: "48px", flexShrink: 0 },
+  trendContent: { flex: 1 },
+  trendTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "8px" },
+  trendText: { fontSize: "15px", opacity: 0.95, marginBottom: "16px", lineHeight: 1.5 },
+  trendStats: { display: "flex", alignItems: "center", gap: "16px" },
+  trendStatLabel: { display: "block", fontSize: "12px", opacity: 0.8, marginBottom: "4px" },
+  trendStatValue: { display: "block", fontSize: "20px", fontWeight: "700" },
+  trendArrow: { fontSize: "20px", opacity: 0.8 },
 };
