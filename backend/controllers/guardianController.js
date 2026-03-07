@@ -1,24 +1,23 @@
-import StudentTherapist from "../models/StudentTherapist.js";
+import StudentGuardian from "../models/StudentGuardian.js";
 import User from "../models/User.js";
 import SentenceAttempt from "../models/SentenceAttempt.js";
 import TwoLetterWordAttempt from "../models/Twoletterattempt.js";
 import LetterState from "../models/LetterState.js";
 
-/* ================================
-   GET LIST OF STUDENTS FOR THERAPIST
-================================ */
-export const getTherapistStudents = async (req, res) => {
-  try {
-    const therapistId = req.user._id;
+// similar to therapist controller but simplified for guardian relationship
 
-    const students = await StudentTherapist.find({ therapistId })
+export const getGuardianStudents = async (req, res) => {
+  try {
+    const guardianId = req.user._id;
+
+    const relations = await StudentGuardian.find({ guardianId })
       .populate({
         path: "studentId",
         select: "name email age lastActive createdAt _id"
       })
       .lean();
 
-    const studentList = students.map(rel => ({
+    const studentList = relations.map(rel => ({
       ...rel.studentId,
       assignedDate: rel.createdAt
     }));
@@ -33,51 +32,32 @@ export const getTherapistStudents = async (req, res) => {
   }
 };
 
-/* ================================
-   GET STUDENT DETAILS
-================================ */
 export const getStudentDetail = async (req, res) => {
   try {
-    const therapistId = req.user._id;
+    const guardianId = req.user._id;
     const { studentId } = req.params;
 
-    // Verify therapist has access to this student
-    const relationship = await StudentTherapist.findOne({
-      therapistId,
-      studentId
-    });
-
+    const relationship = await StudentGuardian.findOne({ guardianId, studentId });
     if (!relationship) {
       return res.status(403).json({ error: "Access denied" });
     }
 
     const student = await User.findById(studentId).select("name email role age lastActive createdAt _id");
 
-    return res.json({
-      success: true,
-      student
-    });
+    return res.json({ success: true, student });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
 
-/* ================================
-   GET STUDENT DASHBOARD SUMMARY
-================================ */
 export const getStudentDashboardSummary = async (req, res) => {
   try {
-    const therapistId = req.user._id;
+    const guardianId = req.user._id;
     const { studentId } = req.params;
     const timeframe = parseInt(req.query.timeframe) || 7;
 
-    // Verify therapist has access to this student
-    const relationship = await StudentTherapist.findOne({
-      therapistId,
-      studentId
-    });
-
+    const relationship = await StudentGuardian.findOne({ guardianId, studentId });
     if (!relationship) {
       return res.status(403).json({ error: "Access denied" });
     }
@@ -129,26 +109,17 @@ export const getStudentDashboardSummary = async (req, res) => {
   }
 };
 
-/* ================================
-   GET STUDENT WORD REPORT
-================================ */
 export const getStudentWordReport = async (req, res) => {
   try {
-    const therapistId = req.user._id;
+    const guardianId = req.user._id;
     const { studentId } = req.params;
 
-    // Verify therapist has access to this student
-    const relationship = await StudentTherapist.findOne({
-      therapistId,
-      studentId
-    });
-
+    const relationship = await StudentGuardian.findOne({ guardianId, studentId });
     if (!relationship) {
       return res.status(403).json({ error: "Access denied" });
     }
 
     const attempts = await TwoLetterWordAttempt.find({ studentId });
-
     if (!attempts.length) {
       return res.json({
         success: true,
@@ -189,26 +160,17 @@ export const getStudentWordReport = async (req, res) => {
   }
 };
 
-/* ================================
-   GET STUDENT SENTENCE REPORT
-================================ */
 export const getStudentSentenceReport = async (req, res) => {
   try {
-    const therapistId = req.user._id;
+    const guardianId = req.user._id;
     const { studentId } = req.params;
 
-    // Verify therapist has access to this student
-    const relationship = await StudentTherapist.findOne({
-      therapistId,
-      studentId
-    });
-
+    const relationship = await StudentGuardian.findOne({ guardianId, studentId });
     if (!relationship) {
       return res.status(403).json({ error: "Access denied" });
     }
 
     const attempts = await SentenceAttempt.find({ studentId });
-
     if (!attempts.length) {
       return res.json({
         success: true,
@@ -250,32 +212,21 @@ export const getStudentSentenceReport = async (req, res) => {
   }
 };
 
-/* ================================
-   GET STUDENT LETTER REPORT
-================================ */
 export const getStudentLetterReport = async (req, res) => {
   try {
-    const therapistId = req.user._id;
+    const guardianId = req.user._id;
     const { studentId } = req.params;
 
-    // Verify therapist has access to this student
-    const relationship = await StudentTherapist.findOne({
-      therapistId,
-      studentId
-    });
-
+    const relationship = await StudentGuardian.findOne({ guardianId, studentId });
     if (!relationship) {
       return res.status(403).json({ error: "Access denied" });
     }
 
     const letterStates = await LetterState.find({ studentId });
-
     if (!letterStates.length) {
       return res.json({
         success: true,
-        data: {
-          letters: []
-        }
+        data: { letters: [] }
       });
     }
 
@@ -288,76 +239,7 @@ export const getStudentLetterReport = async (req, res) => {
 
     return res.json({
       success: true,
-      data: {
-        letters: letterData
-      }
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/* ================================
-   ASSIGN STUDENT TO THERAPIST
-================================ */
-export const assignStudentToTherapist = async (req, res) => {
-  try {
-    const therapistId = req.user._id;
-    const { studentId } = req.body;
-
-    // Verify student exists
-    const student = await User.findById(studentId);
-    if (!student || student.role !== "student") {
-      return res.status(400).json({ error: "Invalid student" });
-    }
-
-    // Check if already assigned
-    const existing = await StudentTherapist.findOne({
-      therapistId,
-      studentId
-    });
-
-    if (existing) {
-      return res.status(400).json({ error: "Student already assigned" });
-    }
-
-    const assignment = await StudentTherapist.create({
-      therapistId,
-      studentId
-    });
-
-    return res.json({
-      success: true,
-      message: "Student assigned successfully",
-      assignment
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/* ================================
-   REMOVE STUDENT FROM THERAPIST
-================================ */
-export const removeStudentFromTherapist = async (req, res) => {
-  try {
-    const therapistId = req.user._id;
-    const { studentId } = req.params;
-
-    const result = await StudentTherapist.findOneAndDelete({
-      therapistId,
-      studentId
-    });
-
-    if (!result) {
-      return res.status(404).json({ error: "Assignment not found" });
-    }
-
-    return res.json({
-      success: true,
-      message: "Student removed successfully"
+      data: { letters: letterData }
     });
   } catch (err) {
     console.error(err);

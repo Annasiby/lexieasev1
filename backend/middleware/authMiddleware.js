@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import StudentTeacher from "../models/StudentTeacher.js";
 import ParentChild from "../models/ParentChild.js";
 import StudentTherapist from "../models/StudentTherapist.js";
+import StudentGuardian from "../models/StudentGuardian.js";
 
 export const protect = async (req, res, next) => {
   const token = req.cookies?.token;
@@ -56,6 +57,14 @@ export const canAccessStudent = async (req, res, next) => {
   if (requester.role === "therapist") {
     const link = await StudentTherapist.findOne({
       therapistId: requester._id,
+      studentId,
+    });
+    if (link) return next();
+  }
+
+  if (requester.role === "guardian") {
+    const link = await StudentGuardian.findOne({
+      guardianId: requester._id,
       studentId,
     });
     if (link) return next();

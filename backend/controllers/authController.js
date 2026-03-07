@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import StudentTherapist from "../models/StudentTherapist.js";
+import StudentGuardian from "../models/StudentGuardian.js";
 import jwt from "jsonwebtoken";
 
 const generateToken = (user) => {
@@ -28,7 +29,7 @@ const sendTokenResponse = (user, res) => {
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role, therapistId, age } = req.body;
+    const { name, email, password, role, therapistId, guardianId, age } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -45,17 +46,16 @@ export const register = async (req, res) => {
 
     const user = await User.create(userData);
 
-    // If registering as a student, potentially create therapist link
+    // If registering as a student, potentially create therapist/guardian links
     if (role === "student") {
+      // therapist assignment
       try {
         if (therapistId) {
-          // explicit therapist selected by user
           await StudentTherapist.create({
             studentId: user._id,
             therapistId,
           });
         } else {
-          // no therapist chosen; if exactly one therapist exists, assign automatically
           const therapists = await User.find({ role: "therapist" }).select("_id");
           if (therapists.length === 1) {
             await StudentTherapist.create({
@@ -66,7 +66,26 @@ export const register = async (req, res) => {
         }
       } catch (err) {
         console.error("Error assigning therapist:", err);
-        // don't block registration on assignment failure
+      }
+
+      // guardian assignment
+      try {
+        if (guardianId) {
+          await StudentGuardian.create({
+            studentId: user._id,
+            guardianId,
+          });
+        } else {
+          const guardians = await User.find({ role: "guardian" }).select("_id");
+          if (guardians.length === 1) {
+            await StudentGuardian.create({
+              studentId: user._id,
+              guardianId: guardians[0]._id,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error assigning guardian:", err);
       }
     }
 
@@ -118,6 +137,20 @@ export const getTherapists = async (req, res) => {
     return res.json({
       success: true,
       therapists
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET ALL GUARDIANS (for student signup dropdown)
+export const getGuardians = async (req, res) => {
+  try {
+    const guardians = await User.find({ role: "guardian" }).select("_id name email");
+    
+    return res.json({
+      success: true,
+      guardians
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
