@@ -3,7 +3,10 @@ import cors from "cors"; //allows communication between frontend and backend
 import cookieParser from "cookie-parser"; //lets backend read cookies - cookie based auth
 
 import authRoutes from "./routes/authRoutes.js";
-import testRoutes from "./routes/testRoutes.js";
+
+
+import reportRoutes from "./routes/reportRoutes.js";
+
 import relationshipRoutes from "./routes/relationshipRoutes.js";
 import letterRoutes from "./routes/letterRoutes.js";
 import sentenceRoutes from "./routes/sentenceRoutes.js";
@@ -29,11 +32,13 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/test", testRoutes);
+
 app.use("/api/relationships", relationshipRoutes);
 app.use("/api/letters", letterRoutes);
 app.use("/api/sentences", sentenceRoutes);
 app.use("/api/words", wordRoutes);
+app.use("/api/reports", reportRoutes);
+
 app.use("/api/twoletterwords", twoLetterRoutes);
 app.use("/api/syllables", syllableRoutes);
 export default app;
