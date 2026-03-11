@@ -143,6 +143,14 @@ import SentenceReport from "./student/Sentencereport.jsx";
 import WordReport from "./student/Wordreport.jsx";
 import LetterReport from "./student/Letterreport";
 
+import TherapistLayout from "./therapist/TherapistLayout";
+import TherapistDashboard from "./therapist/TherapistDashboard";
+import TherapistStudentDetail from "./therapist/TherapistStudentDetail";
+
+import GuardianLayout from "./guardian/GuardianLayout";
+import GuardianDashboard from "./guardian/GuardianDashboard";
+import GuardianStudentDetail from "./guardian/GuardianStudentDetail";
+
 /* ================= Protected Route ================= */
 function ProtectedRoute({ children, allowedRoles }) {
   const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -195,6 +203,34 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* -------- Therapist -------- */}
+      <Route
+        path="/therapist"
+        element={
+          <ProtectedRoute allowedRoles={["therapist"]}>
+            <TherapistLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<TherapistDashboard />} />
+        <Route path="dashboard" element={<TherapistDashboard />} />
+        <Route path="student/:studentId" element={<TherapistStudentDetail />} />
+      </Route>
+
+      {/* -------- Guardian -------- */}
+      <Route
+        path="/guardian"
+        element={
+          <ProtectedRoute allowedRoles={["guardian"]}>
+            <GuardianLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<GuardianDashboard />} />
+        <Route path="dashboard" element={<GuardianDashboard />} />
+        <Route path="student/:studentId" element={<GuardianStudentDetail />} />
+      </Route>
 
       {/* -------- Parent -------- */}
       <Route

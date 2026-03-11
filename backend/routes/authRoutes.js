@@ -1,5 +1,5 @@
 import express from "express";
-import { register, login, logout } from "../controllers/authController.js";
+import { register, login, logout, getTherapists, getGuardians } from "../controllers/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -7,6 +7,8 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
 router.post("/logout", protect, logout);
+router.get("/therapists", getTherapists);
+router.get("/guardians", getGuardians);
 
 // ADD THIS NEW ENDPOINT - Get current user info
 router.get("/me", protect, async (req, res) => {

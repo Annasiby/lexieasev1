@@ -6,6 +6,8 @@ import authRoutes from "./routes/authRoutes.js";
 
 
 import reportRoutes from "./routes/reportRoutes.js";
+import therapistRoutes from "./routes/therapistRoutes.js";
+import guardianRoutes from "./routes/guardianRoutes.js";
 
 import relationshipRoutes from "./routes/relationshipRoutes.js";
 import letterRoutes from "./routes/letterRoutes.js";
@@ -38,6 +40,8 @@ app.use("/api/letters", letterRoutes);
 app.use("/api/sentences", sentenceRoutes);
 app.use("/api/words", wordRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/therapist", therapistRoutes);
+app.use("/api/guardian", guardianRoutes);
 
 app.use("/api/twoletterwords", twoLetterRoutes);
 app.use("/api/syllables", syllableRoutes);
