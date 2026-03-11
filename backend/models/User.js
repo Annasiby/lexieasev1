@@ -22,8 +22,15 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "teacher", "parent", "student"],
+      enum: ["admin", "teacher", "parent", "student", "therapist", "guardian"],
       default: "student",
+    },
+    age: {
+      type: Number,
+      min: 0,
+    },
+    lastActive: {
+      type: Date,
     },
   },
   { timestamps: true }
@@ -36,8 +43,8 @@ const userSchema = new mongoose.Schema(
 //   next();
 // });
 
-userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return ;
   this.password = await bcrypt.hash(this.password, 10);
 });
 

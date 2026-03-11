@@ -8,6 +8,11 @@ import {
   getSegmentMetrics,
   shutdownEyeTracking,
 } from "../utils/eyeTrackingController";
+import {
+  splitIntoSyllables,
+  getGoogleStylePronunciation,
+  speakSyllables,
+} from "../utils/syllabify";
 
 function SentenceLevel() {
   const [sentence, setSentence] = useState(null);
@@ -16,16 +21,21 @@ function SentenceLevel() {
   const [shownAt, setShownAt] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [selectedWord, setSelectedWord] = useState("");
+  const [selectedSyllables, setSelectedSyllables] = useState([]);
+  const [selectedPronunciation, setSelectedPronunciation] = useState("");
 
-  const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
   const spokenRef = useRef("");
   const shouldSubmitRef = useRef(false);
-  
+
   const sentenceIdRef = useRef(null);
   const sentenceRef = useRef(null);
   const shownAtRef = useRef(null);
   const videoRef = useRef(null);
-  
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (videoRef.current) {
@@ -95,6 +105,9 @@ function SentenceLevel() {
       setSentenceId(res.sentenceId);
       setFeedback(null);
       setSpoken("");
+      setSelectedWord("");
+      setSelectedSyllables([]);
+      setSelectedPronunciation("");
       spokenRef.current = "";
       startSegment();
       setShownAt(Date.now());
@@ -108,6 +121,13 @@ function SentenceLevel() {
     loadSentence();
   }, []);
 
+  const handleWordClick = async (clickedWord) => {
+    const syllableParts = await splitIntoSyllables(clickedWord);
+    setSelectedWord(clickedWord);
+    setSelectedSyllables(syllableParts);
+    setSelectedPronunciation(getGoogleStylePronunciation(syllableParts));
+  };
+
   /* =========================
      Audio Feedback
   ========================== */
@@ -120,12 +140,12 @@ function SentenceLevel() {
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    
+
     // Make it more enthusiastic
     utterance.rate = 1.0;
     utterance.pitch = 1.1;
     utterance.volume = 1.0;
-    
+
     window.speechSynthesis.speak(utterance);
   };
 
@@ -134,20 +154,26 @@ function SentenceLevel() {
   ========================== */
   const submitAttempt = async () => {
     console.log("📤 submitAttempt called");
-    
-    if (!sentenceIdRef.current || !sentenceRef.current || !spokenRef.current || !shownAtRef.current) {
+
+    if (
+      !sentenceIdRef.current ||
+      !sentenceRef.current ||
+      !spokenRef.current ||
+      !shownAtRef.current
+    ) {
       console.log("❌ Missing data, aborting submit");
       return;
     }
 
     endSegment();
-    
+
     const metrics = getSegmentMetrics();
     const responseTimeMs = Date.now() - shownAtRef.current;
-    
+
     let visionResult = { usable: false, score: 0, isHard: false };
 
-    if (responseTimeMs >= 2000) {  // sentences need longer threshold
+    if (responseTimeMs >= 2000) {
+      // sentences need longer threshold
       visionResult = computeVisualHesitationScore(metrics);
     }
 
@@ -168,7 +194,7 @@ function SentenceLevel() {
         visualScore: visionResult.score,
         visualIsHard: visionResult.isHard,
       };
-      
+
       console.log("📤 Sending to API:", payload);
 
       const res = await apiFetch("/api/sentences/attempt", {
@@ -187,7 +213,7 @@ function SentenceLevel() {
         ...res,
         displayMessage: feedbackMessage,
       });
-      
+
       speakFeedback(res);
 
       // 🔥 Load next sentence after delay
@@ -205,69 +231,16 @@ function SentenceLevel() {
   };
 
   /* =========================
-     Speech Recognition Setup
+     Recording (MediaRecorder) — send audio to backend → Gemini
   ========================== */
   useEffect(() => {
-    console.log("🎙️ Setting up speech recognition (ONCE)");
-    
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Speech Recognition not supported in this browser");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = () => {
-      console.log("🎙️ Recognition started");
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      const confidence = event.results[0][0].confidence;
-      
-      console.log(`🎤 Heard: "${transcript}" (confidence: ${confidence.toFixed(2)})`);
-      
-      spokenRef.current = transcript;
-      setSpoken(transcript);
-    };
-
-    recognition.onerror = (event) => {
-      console.error("❌ Recognition error:", event.error);
-      setIsRecording(false);
-      shouldSubmitRef.current = false;
-    };
-
-    recognition.onend = () => {
-      console.log(`🎙️ Recognition ended. hasTranscript: ${!!spokenRef.current}`);
-      setIsRecording(false);
-
-      // ✅ AUTO-SUBMIT if we have a transcript
-      if (spokenRef.current) {
-        console.log("✅ Calling submitAttempt");
-        submitAttempt();
-      } else {
-        console.log("⚠️ Not submitting - no transcript");
-      }
-
-      shouldSubmitRef.current = false;
-    };
-
-    recognitionRef.current = recognition;
-    console.log("✅ Speech recognition ready");
-
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-        console.log("🧹 Recognition cleaned up on unmount");
-      }
+      // cleanup any active stream
+      try {
+        streamRef.current?.getTracks()?.forEach((t) => t.stop());
+      } catch (e) {}
     };
-  }, []); // Empty array - only setup once
+  }, []);
 
   /* =========================
      Cleanup speech synthesis
@@ -283,47 +256,85 @@ function SentenceLevel() {
   /* =========================
      Controls
   ========================== */
-  const startRecording = () => {
-    console.log("▶️ START button clicked");
-    
-    if (!recognitionRef.current) {
-      console.log("❌ No recognition object");
-      return;
-    }
-
-    setSpoken("");
-    spokenRef.current = "";
-    setFeedback(null);
-    setShownAt(Date.now());
-    shouldSubmitRef.current = false;
-
+  const startRecording = async () => {
     try {
+      setSpoken("");
+      spokenRef.current = "";
+      setFeedback(null);
+      setShownAt(Date.now());
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: chunksRef.current[0]?.type || mimeType });
+
+        try {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+        } catch (e) {}
+
+        const responseTimeMs = Date.now() - shownAtRef.current;
+        endSegment();
+        const metrics = getSegmentMetrics();
+
+        let visionResult = { usable: false, score: 0, isHard: false };
+        if (responseTimeMs >= 2000) {
+          visionResult = computeVisualHesitationScore(metrics);
+        }
+
+        const form = new FormData();
+        form.append("audio", blob, "speech.webm");
+        form.append("sentenceId", sentenceIdRef.current);
+        form.append("expected", sentenceRef.current);
+        form.append("responseTimeMs", responseTimeMs);
+        form.append("visionUsable", visionResult.usable);
+        form.append("visualScore", visionResult.score);
+        form.append("visionHard", visionResult.isHard);
+
+        setIsRecording(false);
+
+        try {
+          const res = await fetch("http://localhost:5001/api/sentences/attempt", {
+            method: "POST",
+            credentials: "include",
+            body: form,
+          });
+
+          const data = await res.json();
+          setFeedback(data);
+          if (data?.transcript) {
+            spokenRef.current = data.transcript;
+            setSpoken(data.transcript);
+          }
+
+          setTimeout(() => loadSentence(), 1500);
+        } catch (err) {
+          console.error("Sentence upload failed", err);
+          setFeedback({ sentenceCorrect: false, displayMessage: "Upload failed" });
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
       setIsRecording(true);
-      recognitionRef.current.start();
-      console.log("🎙️ Starting recognition...");
-    } catch (error) {
-      console.error("❌ Start error:", error);
-      setIsRecording(false);
+    } catch (err) {
+      console.error("Recording start failed", err);
+      alert("Unable to access microphone");
     }
   };
 
   const stopRecording = () => {
-    console.log("⏹️ STOP button clicked");
-    
-    if (!recognitionRef.current) {
-      console.log("❌ No recognition object");
-      return;
-    }
-
-    shouldSubmitRef.current = true;
-    console.log("✅ Set shouldSubmit = true");
-    
-    try {
-      recognitionRef.current.stop();
-      console.log("🎙️ Stopping recognition...");
-    } catch (error) {
-      console.error("❌ Stop error:", error);
-    }
+    if (!mediaRecorderRef.current) return;
+    mediaRecorderRef.current.stop();
+    setIsRecording(false);
   };
 
   /* =========================
@@ -346,8 +357,38 @@ function SentenceLevel() {
         <p style={styles.subtitle}>Read this sentence clearly</p>
 
         <div style={styles.sentenceWrap}>
-          <h1 style={styles.sentence}>{sentence}</h1>
+          <h1 style={styles.sentence}>
+            {(sentence || "").split(" ").map((w, i) => (
+              <span
+                key={`${w}-${i}`}
+                style={styles.wordChip}
+                onClick={() => handleWordClick(w)}
+              >
+                {w}{" "}
+              </span>
+            ))}
+          </h1>
         </div>
+        {selectedWord && (
+          <div style={styles.spokenCard}>
+            <span style={styles.label}>Word Breakdown</span>
+            <p style={styles.spokenText}>
+              <strong>{selectedWord}</strong>
+            </p>
+            <p style={styles.spokenText}>
+              Syllables: {selectedSyllables.join(" - ")}
+            </p>
+            <p style={styles.spokenText}>
+              Pronunciation: {selectedPronunciation}
+            </p>
+            <button
+              style={{ ...styles.stopBtn, marginTop: 10 }}
+              onClick={() => speakSyllables(selectedSyllables)}
+            >
+              Speak Syllables
+            </button>
+          </div>
+        )}
 
         <div style={styles.controls}>
           <button
@@ -443,6 +484,9 @@ const styles = {
     fontSize: 36,
     fontWeight: 800,
     lineHeight: 1.4,
+  },
+  wordChip: {
+    cursor: "pointer",
   },
   controls: {
     display: "flex",
