@@ -48,6 +48,7 @@ export default function WordLevel() {
     return () => document.head.removeChild(styleSheet);
   }, []);
 
+  
   useEffect(() => {
     wordIdRef.current = wordId;
     wordRef.current = word;
@@ -450,6 +451,8 @@ export default function WordLevel() {
         const data = await res.json();
         setFeedback(data);
         if (data?.transcript) setSpoken(data.transcript);
+
+        speakFeedback(data); // ✅ Added: speak feedback after audio attempt
 
         setTimeout(() => loadWord(), 1500);
       };

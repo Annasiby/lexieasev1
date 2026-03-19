@@ -1254,7 +1254,7 @@ export default function SentenceReport() {
   const navigate  = useNavigate();
   const [report,   setReport]   = useState(null);
   const [loading,  setLoading]  = useState(true);
-  const [timeframe,setTimeframe]= useState(7);
+  const [timeframe,setTimeframe]= useState(365);
   const [userInfo, setUserInfo] = useState(null);
   const [downloading,setDownloading] = useState(false);
 
