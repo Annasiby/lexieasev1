@@ -1,8 +1,9 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import PublicLayout from "./components/PublicLayout";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import TrainingDocsPage from "./pages/TrainingDocsPage";
 
 import StudentLayout from "./student/StudentLayout";
 import Toggle from "./student/Toggle";
@@ -30,79 +31,116 @@ function ProtectedRoute({ children, allowedRoles }) {
 
 /* ================= App ================= */
 function App() {
+  const location = useLocation();
+
   return (
-    <Routes>
-      {/* -------- Public Routes -------- */}
-      <Route element={<PublicLayout />}>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-      </Route>
+    <>
+      <Routes>
+        {/* -------- Public Routes -------- */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+        </Route>
 
-      {/* -------- Student Routes -------- */}
-      <Route
-        path="/student"
-        element={
-          <ProtectedRoute allowedRoles={["student"]}>
-            <StudentLayout />
-          </ProtectedRoute>
-        }
-      >
-        {/* student home */}
-        <Route index element={<Toggle />} />
+        {/* -------- Student Routes -------- */}
+        <Route
+          path="/student"
+          element={
+            <ProtectedRoute allowedRoles={["student"]}>
+              <StudentLayout />
+            </ProtectedRoute>
+          }
+        >
+          {/* student home */}
+          <Route index element={<Toggle />} />
 
-        {/* dashboard */}
-        <Route path="dashboard" element={<Dashboard />} />
+          {/* dashboard */}
+          <Route path="dashboard" element={<Dashboard />} />
 
-        {/* learning levels (same logic as upstream, just routed) */}
-        <Route path="letter-level" element={<LetterLevel />} />
-        <Route path="word-level" element={<WordLevel />} />
-        <Route path="sentence-level" element={<SentenceLevel />} />
-      </Route>
+          {/* learning levels (same logic as upstream, just routed) */}
+          <Route path="letter-level" element={<LetterLevel />} />
+          <Route path="word-level" element={<WordLevel />} />
+          <Route path="sentence-level" element={<SentenceLevel />} />
+          <Route path="training-docs" element={<TrainingDocsPage role="student" />} />
+        </Route>
 
-      {/* -------- Teacher -------- */}
-      <Route
-        path="/teacher/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={["teacher"]}>
-            <Placeholder title="Teacher Dashboard" />
-          </ProtectedRoute>
-        }
-      />
+        {/* -------- Teacher -------- */}
+        <Route
+          path="/teacher/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["teacher"]}>
+              <TrainingDocsPage role="teacher" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/training-docs"
+          element={
+            <ProtectedRoute allowedRoles={["teacher"]}>
+              <TrainingDocsPage role="teacher" />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* -------- Parent -------- */}
-      <Route
-        path="/parent/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={["parent"]}>
-            <Placeholder title="Parent Dashboard" />
-          </ProtectedRoute>
-        }
-      />
+        {/* -------- Parent -------- */}
+        <Route
+          path="/parent/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["parent"]}>
+              <TrainingDocsPage role="parent" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/parent/training-docs"
+          element={
+            <ProtectedRoute allowedRoles={["parent"]}>
+              <TrainingDocsPage role="parent" />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* -------- Admin -------- */}
-      <Route
-        path="/admin/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={["admin"]}>
-            <Placeholder title="Admin Dashboard" />
-          </ProtectedRoute>
-        }
-      />
+        {/* -------- Admin -------- */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <div style={placeholderStyle}>
+                <h1>Admin Dashboard</h1>
+                <p>Coming Soon</p>
+              </div>
+            </ProtectedRoute>
+          }
+        />
 
-      {/* -------- Catch All -------- */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* -------- Catch All -------- */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <UploadDocsShortcut pathname={location.pathname} />
+    </>
   );
 }
 
-/* ================= Placeholder ================= */
-function Placeholder({ title }) {
+function UploadDocsShortcut({ pathname }) {
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  if (!user || !["student", "teacher", "parent"].includes(user.role)) return null;
+
+  const uploadPathByRole = {
+    student: "/student/training-docs",
+    teacher: "/teacher/training-docs",
+    parent: "/parent/training-docs",
+  };
+
+  const targetPath = uploadPathByRole[user.role];
+  if (!targetPath || pathname === targetPath) return null;
+
   return (
-    <div style={placeholderStyle}>
-      <h1>{title}</h1>
-      <p>Coming Soon</p>
-    </div>
+    <button style={shortcutStyles.button} onClick={() => navigate(targetPath)}>
+      Upload Docs
+    </button>
   );
 }
 
@@ -116,5 +154,22 @@ const placeholderStyle = {
     '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif',
 };
 
-export default App;
+const shortcutStyles = {
+  button: {
+    position: "fixed",
+    right: 20,
+    bottom: 20,
+    zIndex: 9999,
+    border: "none",
+    borderRadius: 999,
+    background: "#0f172a",
+    color: "white",
+    fontWeight: 700,
+    fontSize: 14,
+    padding: "12px 16px",
+    cursor: "pointer",
+    boxShadow: "0 8px 20px rgba(2, 6, 23, 0.28)",
+  },
+};
 
+export default App;

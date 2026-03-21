@@ -21,6 +21,8 @@ export default function WordLevel() {
 
   const [word, setWord] = useState(null);
   const [wordId, setWordId] = useState(null);
+  const [sourceSentence, setSourceSentence] = useState("");
+  const [sourceDocTitle, setSourceDocTitle] = useState("");
   const [spoken, setSpoken] = useState("");
   const [shownAt, setShownAt] = useState(null);
   const [feedback, setFeedback] = useState(null);
@@ -62,6 +64,8 @@ export default function WordLevel() {
     const res = await apiFetch("/api/words/next");
     console.log("Loaded word: ", res.word);
     setWord(res.word);
+    setSourceSentence(res.sourceSentence || "");
+    setSourceDocTitle(res.sourceDocTitle || "");
     const s = await splitIntoSyllables(res.word || "");
     setSyllables(s);
     setPronunciation(getGoogleStylePronunciation(s));
@@ -213,6 +217,12 @@ export default function WordLevel() {
         <h2 style={styles.title}>🗣️ Word Pronunciation</h2>
 
         <div style={styles.wordDisplay}>{word}</div>
+        {(sourceSentence || sourceDocTitle) && (
+          <p style={styles.sourceMeta}>
+            {sourceDocTitle ? `Doc: ${sourceDocTitle}. ` : ""}
+            {sourceSentence ? `Mapped sentence: "${sourceSentence}"` : ""}
+          </p>
+        )}
 
         {syllables.length > 0 && (
           <p style={styles.syllables}>Syllables: {syllables.join(" - ")}</p>
@@ -320,6 +330,11 @@ const styles = {
     color: "#334155",
     marginTop: -12,
     marginBottom: 6,
+  },
+  sourceMeta: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "#475569",
   },
   pronunciation: {
     fontSize: 16,

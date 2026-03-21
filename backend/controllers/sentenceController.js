@@ -2,12 +2,14 @@ import SentenceState from "../models/SentenceState.js";
 import LetterState from "../models/LetterState.js";
 import { selectNextState } from "../src/bandit/selectNext.js";
 import { updateBanditState } from "../src/bandit/updateState.js";
-import { SENTENCES } from "../data/sentences.js";
+import { getTrainingCorpusForStudent } from "../services/trainingContentService.js";
 
 // Chooses the next sentence based on the student's weakest letters (2–3)
 export const getNextSentence = async (req, res) => {
   try {
     const studentId = req.user._id;
+    const corpus = await getTrainingCorpusForStudent(studentId);
+    const availableSentences = corpus.sentences;
     
     // Get weakest letters
     const weakLetterStates = await LetterState.find({ studentId })
@@ -33,7 +35,7 @@ export const getNextSentence = async (req, res) => {
       return score;
     };
 
-    const rankedSentences = SENTENCES
+    const rankedSentences = availableSentences
       .map(s => ({
         ...s,
         score: scoreSentence(s.text, weakLetters),
@@ -44,7 +46,7 @@ export const getNextSentence = async (req, res) => {
     const finalSentences =
       rankedSentences.length > 0
         ? rankedSentences
-        : SENTENCES.map(s => ({ ...s, score: 1 }));
+        : availableSentences.map(s => ({ ...s, score: 1 }));
 
     // Ensure SentenceState exists
     await Promise.all(
@@ -102,14 +104,23 @@ export const getNextSentence = async (req, res) => {
     await chosenState.save();
 
     // Return sentence
-    const chosenSentence = SENTENCES.find(
+    const chosenSentence = availableSentences.find(
       s => s.id === chosenState.sentenceId
     );
+    if (!chosenSentence) {
+      return res.status(500).json({
+        success: false,
+        error: "Selected sentence not found in training corpus",
+      });
+    }
 
     return res.json({
       success: true,
       sentenceId: chosenSentence.id,
       sentence: chosenSentence.text,
+      focusWords: chosenSentence.focusWords || [],
+      sourceDocTitle: chosenSentence.sourceDocTitle || null,
+      trainingSource: corpus.source,
       targetLetters: weakLetters,
     });
 
@@ -196,8 +207,8 @@ export const logSentenceAttempt = async (req, res) => {
 
     // Update SentenceState   
     const fluencyScore = Math.min(1, 3000 / responseTimeMs);
-    if (!visualScore) visualScore = 0;
-    const visionPenalty = visualScore * 0.2;
+    const visualScoreValue = Number(visualScore || 0);
+    const visionPenalty = visualScoreValue * 0.2;
 
     const sentenceReward =
       0.6 * (sentenceCorrect ? 1 : 0) +
@@ -210,7 +221,7 @@ export const logSentenceAttempt = async (req, res) => {
     fluencyScore,
     sentenceCorrect,
     sentenceReward,
-    visualScore,
+    visualScore: visualScoreValue,
     visualIsHard
   });
 

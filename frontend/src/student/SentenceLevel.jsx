@@ -17,6 +17,8 @@ import {
 function SentenceLevel() {
   const [sentence, setSentence] = useState(null);
   const [sentenceId, setSentenceId] = useState(null);
+  const [focusWords, setFocusWords] = useState([]);
+  const [sourceDocTitle, setSourceDocTitle] = useState("");
   const [spoken, setSpoken] = useState("");
   const [shownAt, setShownAt] = useState(null);
   const [feedback, setFeedback] = useState(null);
@@ -101,6 +103,8 @@ function SentenceLevel() {
       console.log("✅ Sentence loaded:", res);
       setSentence(res.sentence);
       setSentenceId(res.sentenceId);
+      setFocusWords(res.focusWords || []);
+      setSourceDocTitle(res.sourceDocTitle || "");
       setFeedback(null);
       setSpoken("");
       setSelectedWord("");
@@ -386,6 +390,13 @@ function SentenceLevel() {
             ))}
           </h1>
         </div>
+
+        {(sourceDocTitle || focusWords.length > 0) && (
+          <p style={styles.trainingMeta}>
+            {sourceDocTitle ? `Doc: ${sourceDocTitle}. ` : ""}
+            {focusWords.length > 0 ? `Focus words: ${focusWords.join(", ")}` : ""}
+          </p>
+        )}
         {selectedWord && (
           <div style={styles.spokenCard}>
             <span style={styles.label}>Word Breakdown</span>
@@ -504,6 +515,11 @@ const styles = {
   },
   wordChip: {
     cursor: "pointer",
+  },
+  trainingMeta: {
+    marginTop: 10,
+    color: "#475569",
+    fontSize: 13,
   },
   controls: {
     display: "flex",

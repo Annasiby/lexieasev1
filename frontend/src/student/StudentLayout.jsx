@@ -4,6 +4,7 @@ const levels = [
   { label: "Letter", path: "/student/letter-level" },
   { label: "Word", path: "/student/word-level" },
   { label: "Sentence", path: "/student/sentence-level" },
+  { label: "Docs", path: "/student/training-docs" },
 ];
 
 export default function StudentLayout() {

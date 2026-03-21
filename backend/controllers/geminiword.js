@@ -3,12 +3,14 @@ import WordState from "../models/WordState.js";
 import LetterState from "../models/LetterState.js";
 import { selectNextState } from "../src/bandit/selectNext.js";
 import { updateBanditState } from "../src/bandit/updateState.js";
-import { WORDS } from "../data/words.js";
+import { getTrainingCorpusForStudent } from "../services/trainingContentService.js";
 
 // Chooses the next word based on the student's weakest letters (2–3)
 export const getNextWord = async (req, res) => {
   try {
     const studentId = req.user._id;
+    const corpus = await getTrainingCorpusForStudent(studentId);
+    const availableWords = corpus.words;
     
     // Get weakest letters
     const weakLetterStates = await LetterState.find({ studentId })
@@ -34,7 +36,7 @@ export const getNextWord = async (req, res) => {
       return score;
     };
 
-    const rankedWords = WORDS
+    const rankedWords = availableWords
       .map(w => ({
         ...w,
         score: scoreWord(w.text, weakLetters),
@@ -45,7 +47,7 @@ export const getNextWord = async (req, res) => {
     const finalWords =
       rankedWords.length > 0
         ? rankedWords
-        : WORDS.map(w => ({ ...w, score: 1 }));
+        : availableWords.map(w => ({ ...w, score: 1 }));
 
     // Ensure WordState exists
     await Promise.all(
@@ -101,14 +103,23 @@ export const getNextWord = async (req, res) => {
     await chosenState.save();
 
     // Return word
-    const chosenWord = WORDS.find(
+    const chosenWord = availableWords.find(
       w => w.id === chosenState.wordId
     );
+    if (!chosenWord) {
+      return res.status(500).json({
+        success: false,
+        error: "Selected word not found in training corpus",
+      });
+    }
 
     return res.json({
       success: true,
       wordId: chosenWord.id,
       word: chosenWord.text,
+      sourceSentence: chosenWord.sourceSentence || null,
+      sourceDocTitle: chosenWord.sourceDocTitle || null,
+      trainingSource: corpus.source,
       targetLetters: weakLetters,
     });
 

@@ -10,6 +10,7 @@ import sentenceRoutes from "./routes/sentenceRoutes.js";
 import wordRoutes from "./routes/wordRoutes.js";
 import twoLetterRoutes from "./routes/twoLetterRoutes.js";
 import syllableRoutes from "./routes/syllableRoutes.js";
+import trainingDocumentRoutes from "./routes/trainingDocumentRoutes.js";
 
 const app = express();
 
@@ -36,4 +37,5 @@ app.use("/api/sentences", sentenceRoutes);
 app.use("/api/words", wordRoutes);
 app.use("/api/twoletterwords", twoLetterRoutes);
 app.use("/api/syllables", syllableRoutes);
+app.use("/api/training-documents", trainingDocumentRoutes);
 export default app;

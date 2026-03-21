@@ -52,12 +52,20 @@ export default function Dashboard() {
           <h2 style={styles.statValue}>🔥 {progress.streak} days</h2>
         </div>
 
-        <button
-          style={styles.cta}
-          onClick={() => navigate("/student/letter-level")}
-        >
-          Continue Practice
-        </button>
+        <div style={styles.summaryActions}>
+          <button
+            style={styles.secondaryCta}
+            onClick={() => navigate("/student/training-docs")}
+          >
+            Upload Training Doc
+          </button>
+          <button
+            style={styles.cta}
+            onClick={() => navigate("/student/letter-level")}
+          >
+            Continue Practice
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -172,5 +180,18 @@ const styles = {
     borderRadius: 14,
     fontWeight: 700,
     cursor: "pointer",
+  },
+  secondaryCta: {
+    background: "transparent",
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.75)",
+    padding: "14px 24px",
+    borderRadius: 14,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  summaryActions: {
+    display: "flex",
+    gap: 12,
   },
 };
