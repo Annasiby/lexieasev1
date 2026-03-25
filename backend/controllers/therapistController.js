@@ -605,7 +605,7 @@ export const downloadStudentLetterReport = async (req, res) => {
 
     // ── Title block ───────────────────────────────────────────────────────
     doc.fillColor('#0f766e').fontSize(26).font('Helvetica-Bold')
-       .text('LexiCura Clinical Report', { align: 'center' });
+       .text('LexCura Clinical Report', { align: 'center' });
     doc.moveDown(0.15);
     doc.fillColor('#0f766e').fontSize(15).font('Helvetica')
        .text('Letter Recognition Report', { align: 'center' });
