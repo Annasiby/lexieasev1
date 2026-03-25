@@ -224,15 +224,17 @@ export const logSentenceAttempt = async (req, res) => {
     const finalReward = Math.max(0, sentenceReward - visionPenalty);
 
     console.log("REWARD DEBUG", {
-    responseTimeMs,
-    fluencyScore,
-    sentenceCorrect,
-    sentenceReward,
-    visualScore: visualScoreValue,
-    visualIsHard
-  });
+      responseTimeMs,
+      fluencyScore,
+      sentenceCorrect,
+      sentenceReward,
+      visualScore: visualScoreValue,
+      visualIsHard,
+      visionPenalty,
+      finalReward,
+    });
 
-    await updateBanditState(sentenceState, sentenceReward);
+    await updateBanditState(sentenceState, finalReward);
     sentenceState.isActive = false;
     await sentenceState.save();
 

@@ -135,7 +135,7 @@ export const getNextWord = async (req, res) => {
 export const geminiWordAttempt = async (req, res) => {
   try {
     const studentId = req.user._id;
-    const { wordId, expected, responseTimeMs } = req.body;
+    const { wordId, expected, responseTimeMs, visualScore, visionHard } = req.body;
     const audio = req.file;
 
     if (!wordId || !expected || !audio || responseTimeMs === undefined) {
@@ -229,17 +229,23 @@ export const geminiWordAttempt = async (req, res) => {
     }
 
     const fluencyScore = Math.min(1, 3000 / Number(responseTimeMs));
-
+    const visualScoreValue = Math.max(0, Number(visualScore || 0));
+    const visionPenalty = visualScoreValue * 0.2;
     const wordReward = 0.6 * (wordCorrect ? 1 : 0) + 0.4 * fluencyScore;
+    const finalReward = Math.max(0, wordReward - visionPenalty);
 
     console.log("REWARD DEBUG", {
       responseTimeMs,
       fluencyScore,
       wordCorrect,
       wordReward,
+      visualScore: visualScoreValue,
+      visionHard,
+      visionPenalty,
+      finalReward,
     });
 
-    await updateBanditState(wordState, wordReward);
+    await updateBanditState(wordState, finalReward);
     wordState.isActive = false;
     await wordState.save();
 
