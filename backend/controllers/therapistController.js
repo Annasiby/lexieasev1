@@ -623,8 +623,6 @@ export const downloadStudentLetterReport = async (req, res) => {
     doc.font('Helvetica').text(`${student.name || 'N/A'}`);
     doc.font('Helvetica-Bold').text('Email: ', marginL, doc.y, { continued: true });
     doc.font('Helvetica').text(`${student.email || 'N/A'}`);
-    doc.font('Helvetica-Bold').text('Age: ', marginL, doc.y, { continued: true });
-    doc.font('Helvetica').text(`${student.age ?? 'N/A'}`);
     doc.font('Helvetica-Bold').text('Report Date: ', marginL, doc.y, { continued: true });
     doc.font('Helvetica').text(`${new Date().toLocaleDateString()}`);
 
@@ -930,7 +928,6 @@ export const downloadStudentWordReport = async (req, res) => {
     const infoLines = [
       { label: 'Student: ',     value: student.name     || 'N/A' },
       { label: 'Email: ',       value: student.email    || 'N/A' },
-      { label: 'Age: ',         value: String(student.age ?? 'N/A') },
       { label: 'Report Date: ', value: new Date().toLocaleDateString() },
     ];
 
@@ -1200,7 +1197,6 @@ export const downloadStudentSentenceReport = async (req, res) => {
     [
       { label: 'Student: ',     value: student.name     || 'N/A' },
       { label: 'Email: ',       value: student.email    || 'N/A' },
-      { label: 'Age: ',         value: String(student.age ?? 'N/A') },
       { label: 'Report Date: ', value: new Date().toLocaleDateString() },
     ].forEach(({ label, value }) => {
       doc.font('Helvetica-Bold').fillColor('#1e293b').fontSize(10)

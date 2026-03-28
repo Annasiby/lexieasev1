@@ -206,7 +206,10 @@ export const getLetterReportData = async (studentId, timeframe = 30) => {
     ...buildTimeFilter(timeframe),
   }).sort({ letter: 1 });
 
-  const letters = states.map((state) => ({
+  // Filter to show only attempted letters (pulls > 0)
+  const attemptedStates = states.filter((state) => state.pulls > 0);
+
+  const letters = attemptedStates.map((state) => ({
     letter: state.letter,
     attempts: state.pulls,
     strength: toPercent(state.avgReward),
@@ -229,29 +232,33 @@ export const getWordReportData = async (studentId, timeframe = 30) => {
   const twoLetterMap = new Map(TWO_LETTER_WORDS.map((item) => [item.id, item.text]));
   const wordMap = new Map(corpus.words.map((item) => [item.id, item.text]));
 
-  const twoLetterItems = twoLetterStates.map((state) => {
-    const correctCount = estimateCorrectCount(state.pulls, state.avgReward);
-    return {
-      word: twoLetterMap.get(state.twoLetterWordId) || state.twoLetterWordId,
-      totalAttempts: state.pulls,
-      correctCount,
-      successRate: state.pulls ? Number(((correctCount / state.pulls) * 100).toFixed(1)) : 0,
-      avgResponseTime: estimateResponseTime(state.avgReward, 1400),
-      updatedAt: state.updatedAt,
-    };
-  });
+  const twoLetterItems = twoLetterStates
+    .filter((state) => state.pulls > 0) // Filter: only attempted items
+    .map((state) => {
+      const correctCount = estimateCorrectCount(state.pulls, state.avgReward);
+      return {
+        word: twoLetterMap.get(state.twoLetterWordId) || state.twoLetterWordId,
+        totalAttempts: state.pulls,
+        correctCount,
+        successRate: state.pulls ? Number(((correctCount / state.pulls) * 100).toFixed(1)) : 0,
+        avgResponseTime: estimateResponseTime(state.avgReward, 1400),
+        updatedAt: state.updatedAt,
+      };
+    });
 
-  const wordItems = wordStates.map((state) => {
-    const correctCount = estimateCorrectCount(state.pulls, state.avgReward);
-    return {
-      word: wordMap.get(state.wordId) || state.wordId.replace(/^.*-w-/, ""),
-      totalAttempts: state.pulls,
-      correctCount,
-      successRate: state.pulls ? Number(((correctCount / state.pulls) * 100).toFixed(1)) : 0,
-      avgResponseTime: estimateResponseTime(state.avgReward, 1800),
-      updatedAt: state.updatedAt,
-    };
-  });
+  const wordItems = wordStates
+    .filter((state) => state.pulls > 0) // Filter: only attempted items
+    .map((state) => {
+      const correctCount = estimateCorrectCount(state.pulls, state.avgReward);
+      return {
+        word: wordMap.get(state.wordId) || state.wordId.replace(/^.*-w-/, ""),
+        totalAttempts: state.pulls,
+        correctCount,
+        successRate: state.pulls ? Number(((correctCount / state.pulls) * 100).toFixed(1)) : 0,
+        avgResponseTime: estimateResponseTime(state.avgReward, 1800),
+        updatedAt: state.updatedAt,
+      };
+    });
 
   const twoLetter = aggregateWordMetrics(twoLetterItems);
   const words = aggregateWordMetrics(wordItems);
@@ -280,7 +287,11 @@ export const getSentenceReportData = async (studentId, timeframe = 30) => {
   const states = filterByTimeframe(statesRaw, timeframe);
 
   const sentenceMap = new Map(corpus.sentences.map((item) => [item.id, item.text]));
-  const attempts = states.map((state) => {
+  
+  // Filter to show only attempted sentences (pulls > 0)
+  const attemptedStates = states.filter((state) => state.pulls > 0);
+  
+  const attempts = attemptedStates.map((state) => {
     const accuracy = toPercent(Math.max(0, state.avgReward));
     const eyeScore = Number((1 - Math.max(0, Math.min(1, state.avgReward))).toFixed(2));
     return {
