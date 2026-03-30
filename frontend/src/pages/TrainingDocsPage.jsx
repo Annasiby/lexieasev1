@@ -209,11 +209,6 @@ export default function TrainingDocsPage({ role }) {
     setError("");
     setMessage("");
 
-    if (selectionMode === "selected" && selectedDocIds.length === 0) {
-      setError("Choose at least one document for selected mode.");
-      return;
-    }
-
     try {
       setSavingSelection(true);
       const res = await apiFetch("/api/training-documents/selection", {

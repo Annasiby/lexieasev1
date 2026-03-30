@@ -356,13 +356,6 @@ export const updateTrainingSelection = async (req, res) => {
       ? selectedDocumentIds.filter((id) => visibleIds.has(String(id)))
       : [];
 
-    if (mode === "selected" && validSelectedIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Choose at least one visible document when using selected mode",
-      });
-    }
-
     const preference = await StudentTrainingPreference.findOneAndUpdate(
       { studentId: req.user._id },
       {
