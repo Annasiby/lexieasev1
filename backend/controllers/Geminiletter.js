@@ -166,10 +166,10 @@ export const geminiLetterAttempt = async (req, res) => {
       }
     }
 
-    if (!matched && spoken.length > 0) score = 30;
+    if (!matched && spoken.length > 0) score = 0;
 
     // 🎯 Normalize Gemini output → bandit reward
-    const reward = score >= 80 ? 1 : score >= 30 ? 0.4 : 0;
+    const reward = score >= 80 ? 1 : 0;
 
     /* =====================
        Bandit Update
