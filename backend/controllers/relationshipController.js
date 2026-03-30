@@ -87,10 +87,14 @@ export const getAvailableStudentsForLinking = async (req, res) => {
     const links = await linkModel.find({ [linkField]: req.user._id }).select(studentField);
     const linkedIds = links.map((link) => link[studentField]);
 
+    const ownershipFilter =
+      req.user.role === "teacher"
+        ? { createdBy: req.user._id, createdByRole: "teacher" }
+        : { createdBy: req.user._id, createdByRole: "parent" };
+
     const students = await User.find({
       role: "student",
-      createdBy: req.user._id,
-      createdByRole: req.user.role,
+      ...ownershipFilter,
       _id: { $nin: linkedIds },
     })
       .sort({ createdAt: -1 })
