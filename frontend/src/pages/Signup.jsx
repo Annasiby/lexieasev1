@@ -113,7 +113,6 @@ export default function Signup() {
         >
           <option value="student">Student</option>
           <option value="teacher">Therapist</option>
-          <option value="parent">Guardian</option>
         </select>
 
         <button type="submit" style={auth.button} disabled={loading}>
