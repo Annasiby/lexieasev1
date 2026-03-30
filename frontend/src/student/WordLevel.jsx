@@ -136,6 +136,7 @@ export default function WordLevel() {
       setSpoken("");
       setFeedback(null);
       setShownAt(Date.now());
+      startSegment();
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -205,7 +206,9 @@ export default function WordLevel() {
         setFeedback(data);
         if (data?.transcript) setSpoken(data.transcript);
         speakFeedback(data);
-        setTimeout(() => loadWord(), 1500);
+        if (data?.canAdvance) {
+          setTimeout(() => loadWord(), 1500);
+        }
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -221,6 +224,12 @@ export default function WordLevel() {
     if (!mediaRecorderRef.current) return;
     mediaRecorderRef.current.stop();
     setIsRecording(false);
+  };
+
+  const moveToNextWord = async () => {
+    setFeedback(null);
+    setSpoken("");
+    await loadWord();
   };
 
   /* =========================
@@ -441,6 +450,17 @@ export default function WordLevel() {
           >
             ⏹ Stop
           </button>
+
+          <button
+            onClick={moveToNextWord}
+            disabled={isRecording}
+            style={{
+              ...styles.skipButton,
+              opacity: isRecording ? 0.6 : 1,
+            }}
+          >
+            ⏭ Next Word
+          </button>
         </div>
 
         {spoken && (
@@ -563,6 +583,16 @@ const styles = {
     fontSize: 16,
     fontWeight: 600,
     backgroundColor: "#ef4444",
+    color: "white",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+  skipButton: {
+    padding: "14px 28px",
+    fontSize: 16,
+    fontWeight: 600,
+    backgroundColor: "#0f172a",
     color: "white",
     border: "none",
     borderRadius: 8,
