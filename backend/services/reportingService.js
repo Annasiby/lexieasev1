@@ -294,9 +294,15 @@ export const getSentenceReportData = async (studentId, timeframe = 30) => {
   const attempts = attemptedStates.map((state) => {
     const accuracy = toPercent(Math.max(0, state.avgReward));
     const eyeScore = Number((1 - Math.max(0, Math.min(1, state.avgReward))).toFixed(2));
+    
+    // Get the most recent spoken attempt
+    const lastAttempt = state.attempts && state.attempts.length > 0 
+      ? state.attempts[state.attempts.length - 1]
+      : null;
+    
     return {
       sentence: sentenceMap.get(state.sentenceId) || state.sentenceId.replace(/^.*-s-\d+/, "").trim() || state.sentenceId,
-      spoken: "",
+      spoken: lastAttempt?.spoken || "",
       correct: state.avgReward >= 0.7,
       accuracy,
       responseTime: estimateResponseTime(state.avgReward, 2200),
