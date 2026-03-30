@@ -37,6 +37,17 @@ const sentenceStateSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    attempts: [{
+      spoken: String,
+      expected: String,
+      accuracy: Number,
+      responseTime: Number,
+      timestamp: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
   },
   { timestamps: true }
 );

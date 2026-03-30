@@ -235,6 +235,17 @@ export const logSentenceAttempt = async (req, res) => {
     });
 
     await updateBanditState(sentenceState, finalReward);
+    
+    // Store the attempt with spoken response
+    sentenceState.attempts = sentenceState.attempts || [];
+    sentenceState.attempts.push({
+      spoken: spoken || "",
+      expected: expected || "",
+      accuracy: Math.round(sentenceAccuracy * 100),
+      responseTime: responseTimeMs,
+      timestamp: new Date(),
+    });
+    
     sentenceState.isActive = false;
     await sentenceState.save();
 
