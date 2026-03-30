@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { apiFetch } from "../api/api";
+
+import { apiFetch, downloadMyStudentReport } from "../api/api";
 import {
   SearchablePaginatedBlocks,
   SearchablePaginatedTable,
@@ -134,8 +135,18 @@ export default function StudentReportsPage() {
         </div>
       ) : null}
 
+      
       {!loading && selectedTab === "letters" && reportData ? (
-        <div style={styles.section}>
+  <div style={styles.section}>
+    <div style={styles.downloadRow}>
+      <button
+        onClick={() => downloadMyStudentReport("letters", timeframe)}
+        style={styles.downloadBtn}
+      >
+        Download Report
+      </button>
+    </div>
+
           <SearchablePaginatedBlocks
             items={reportData.letters || []}
             getSearchText={(item) => `${item.letter} ${item.strength} ${item.attempts}`}
@@ -157,7 +168,16 @@ export default function StudentReportsPage() {
       ) : null}
 
       {!loading && selectedTab === "words" && reportData ? (
-        <div style={styles.section}>
+  <div style={styles.section}>
+    <div style={styles.downloadRow}>
+      <button
+        onClick={() => downloadMyStudentReport("words", timeframe)}
+        style={styles.downloadBtn}
+      >
+        Download Report
+      </button>
+    </div>
+  
           <div style={styles.grid}>
             <MetricCard
               title="Combined Accuracy"
@@ -174,7 +194,7 @@ export default function StudentReportsPage() {
           </div>
           <SearchablePaginatedTable
             headers={["Word", "Attempts", "Correct", "Accuracy", "Avg Response"]}
-            items={[...(reportData.twoLetter?.allWords || []), ...(reportData.words?.allWords || [])]}
+            items={reportData.words?.allWords || []}
             getSearchText={(item) => `${item.word} ${item.totalAttempts} ${item.correctCount} ${item.successRate}`}
             searchPlaceholder="Search words..."
             emptyMessage="No word rows match this search."
@@ -192,7 +212,16 @@ export default function StudentReportsPage() {
       ) : null}
 
       {!loading && selectedTab === "sentences" && reportData ? (
-        <div style={styles.section}>
+  <div style={styles.section}>
+    <div style={styles.downloadRow}>
+      <button
+        onClick={() => downloadMyStudentReport("sentences", timeframe)}
+        style={styles.downloadBtn}
+      >
+        Download Report
+      </button>
+    </div>
+ 
           <div style={styles.grid}>
             <MetricCard
               title="Sentence Accuracy"
@@ -220,7 +249,11 @@ export default function StudentReportsPage() {
                 <td style={styles.td}>{item.sentence}</td>
                 <td style={styles.td}>{item.correct ? "Correct" : "Needs focus"}</td>
                 <td style={styles.td}>{item.accuracy}%</td>
-                <td style={styles.td}>{(item.responseTime / 1000).toFixed(1)}s</td>
+                <td style={styles.td}>
+  {item.spokenText && item.spokenText.trim() !== ""
+    ? item.spokenText
+    : "No response"}
+</td>
                 <td style={styles.td}>{item.eyeScore}</td>
               </tr>
             )}
@@ -379,4 +412,20 @@ const styles = {
     fontSize: 14,
     color: "#0f172a",
   },
+  downloadRow: {
+  display: "flex",
+  justifyContent: "flex-end",
+  marginBottom: 12,
+},
+
+downloadBtn: {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: 14,
+}
 };

@@ -461,7 +461,7 @@
 //           ? "#fef3c7"
 //           : "#fee2e2";
 
-//         const text = strength === null ? "—" : strength < 0 ? "0%" : `${strength.toFixed(1)}%`;
+//         const text = strength === null ? "—" : `${strength.toFixed(1)}%`;
 //         const color = strength === null
 //           ? "#64748b"
 //           : strength >= 40
@@ -1661,7 +1661,7 @@ export default function TherapistStudentDetail() {
               </button>
             </div>
 
-            <div style={{...styles.wordSummaryGrid, gridTemplateColumns: 'repeat(2, 1fr)'}}>
+            <div style={styles.wordSummaryGrid}>
               <div style={styles.wordsMetricCard}> 
                 <div style={styles.summaryLabel}>Combined Accuracy</div>
                 <div style={styles.wordsMetricValue}>{combinedRate}%</div>
@@ -1669,6 +1669,10 @@ export default function TherapistStudentDetail() {
               <div style={styles.wordsMetricCard}>
                 <div style={styles.summaryLabel}>Avg Response Time</div>
                 <div style={styles.wordsMetricValue}>{avgRT > 0 ? `${(avgRT / 1000).toFixed(1)}s` : "—"}</div>
+              </div>
+              <div style={styles.wordsMetricCard}>
+                <div style={styles.summaryLabel}>Multi-Letter Rate</div>
+                <div style={styles.wordsMetricValue}>{wdM?.overview?.successRate ? `${wdM.overview.successRate}%` : "—"}</div>
               </div>
             </div>
 
@@ -1683,6 +1687,26 @@ export default function TherapistStudentDetail() {
                   ))}
                 </ul>
               </div> */}
+            </div>
+
+            <div style={styles.subSection}>
+              <div style={styles.subTitle}>Two-Letter Words</div>
+              <SearchablePaginatedTable
+                items={twoWords}
+                headers={["Word Target", "Attempts / Correct", "Accuracy", "Avg Response", "Fluency Trend"]}
+                getSearchText={(item) => `${item.word} ${item.totalAttempts} ${item.correctCount} ${item.successRate}`}
+                searchPlaceholder="Search two-letter words..."
+                emptyMessage="No two-letter words found."
+                renderRow={(item, idx) => (
+                  <tr key={`${item.word}-${idx}`} style={styles.tableRow}>
+                    <td style={styles.tableCell}>{item.word.toUpperCase()}</td>
+                    <td style={styles.tableCell}>{item.totalAttempts}/{item.correctCount}</td>
+                    <td style={styles.tableCell}>{item.successRate}%</td>
+                    <td style={styles.tableCell}>{(item.avgResponseTime/1000).toFixed(2)}s</td>
+                    <td style={styles.tableCell}>{item.successRate >= 80 ? "↗" : item.successRate >= 60 ? "→" : "↘"}</td>
+                  </tr>
+                )}
+              />
             </div>
 
             <div style={styles.subSection}>
@@ -2018,7 +2042,7 @@ function TherapistLetterStrengthGrid({ letters }) {
           ? "#fef3c7"
           : "#fee2e2";
 
-        const text = strength === null ? "—" : strength < 0 ? "0%" : `${strength.toFixed(1)}%`;
+        const text = strength === null ? "—" : `${strength.toFixed(1)}%`;
         const color = strength === null
           ? "#64748b"
           : strength >= 40
