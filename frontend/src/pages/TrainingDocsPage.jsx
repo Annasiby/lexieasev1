@@ -39,17 +39,6 @@ export default function TrainingDocsPage({ role }) {
   const relationField = isTeacher ? "studentIds" : "childIds";
   const relationLabel = isTeacher ? "students" : "children";
 
-  const handleLogout = async () => {
-    try {
-      await apiFetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      // ignore logout API failure and clear local session anyway
-    } finally {
-      localStorage.removeItem("user");
-      navigate("/login");
-    }
-  };
-
   const headerText = useMemo(() => {
     if (isStudent) return "Upload your own training document";
     if (isTeacher) return "Upload a document for your students";
@@ -375,13 +364,6 @@ export default function TrainingDocsPage({ role }) {
       )}
 
       <div style={styles.card}>
-        {!isStudent && (
-          <div style={styles.topBar}>
-            <button type="button" style={styles.logoutButton} onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        )}
         <h1 style={styles.title}>{headerText}</h1>
         <p style={styles.subtitle}>
           Uploaded text is mapped into words and sentences for meaningful MAB-based training.

@@ -1379,9 +1379,6 @@ export default function TherapistStudentDetail() {
   if (error && !student) {
     return (
       <div style={styles.container}>
-        <button onClick={() => navigate("/therapist/dashboard")} style={styles.backBtn}>
-          ← Back to Dashboard
-        </button>
         <div style={styles.errorMessage}>{error}</div>
       </div>
     );
@@ -1391,9 +1388,6 @@ export default function TherapistStudentDetail() {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <button onClick={() => navigate("/therapist/dashboard")} style={styles.backBtn}>
-          ← Back to Dashboard
-        </button>
         {student && (
           <div style={styles.studentHeader}>
             <div style={styles.avatarLarge}>

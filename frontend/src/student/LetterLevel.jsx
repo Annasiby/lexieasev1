@@ -303,24 +303,6 @@ export default function LetterLevelGemini() {
         </div>
 
         {status && <p style={styles.status}>{status}</p>}
-
-        {score !== null && (
-          <div
-            style={{
-              ...styles.scoreContainer,
-              backgroundColor: score >= 80 ? "#d1fae5" : "#fee2e2",
-            }}
-          >
-            <p
-              style={{
-                ...styles.score,
-                color: score >= 80 ? "#059669" : "#dc2626",
-              }}
-            >
-              Score: {score}/100
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -393,15 +375,5 @@ const styles = {
     fontSize: "18px",
     textAlign: "center",
     margin: "20px 0",
-  },
-  scoreContainer: {
-    marginTop: "20px",
-    padding: "20px",
-    borderRadius: "12px",
-    textAlign: "center",
-  },
-  score: {
-    fontSize: "36px",
-    fontWeight: "bold",
   },
 };

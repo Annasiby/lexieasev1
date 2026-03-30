@@ -30,17 +30,6 @@ export default function ManageStudentsPage({ role }) {
   const privateLinkLabel = isTeacher ? "Link With Student Credentials" : "Link With Student Credentials";
   const createLabel = isTeacher ? "Add New Student" : "Add New Child";
 
-  const handleLogout = async () => {
-    try {
-      await apiFetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      // ignore logout API failure and clear local session anyway
-    } finally {
-      localStorage.removeItem("user");
-      navigate("/login");
-    }
-  };
-
   const loadData = async () => {
     setError("");
     try {
@@ -168,9 +157,6 @@ export default function ManageStudentsPage({ role }) {
           </p>
         </div>
         <div style={styles.heroActions}>
-          <button type="button" style={styles.logoutBtn} onClick={handleLogout}>
-            Logout
-          </button>
           <button
             type="button"
             style={styles.backBtn}

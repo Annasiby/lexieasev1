@@ -13,17 +13,6 @@ export default function ChangePassword() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const handleLogout = async () => {
-    try {
-      await apiFetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      // ignore logout API failure and clear local session anyway
-    } finally {
-      localStorage.removeItem("user");
-      navigate("/login");
-    }
-  };
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage("");
@@ -69,11 +58,6 @@ export default function ChangePassword() {
   return (
     <div style={styles.page}>
       <section style={styles.card}>
-        <div style={styles.topBar}>
-          <button type="button" style={styles.logoutButton} onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
         <h1 style={styles.title}>Change Password</h1>
         <p style={styles.copy}>
           Change the password that was initially set for your account. Use your current
@@ -136,11 +120,6 @@ const styles = {
     padding: 24,
     boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
   },
-  topBar: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginBottom: 8,
-  },
   title: {
     margin: 0,
     fontSize: 30,
@@ -169,15 +148,6 @@ const styles = {
     background: "#1d4ed8",
     color: "#fff",
     padding: "12px 14px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  logoutButton: {
-    border: "none",
-    borderRadius: 10,
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "10px 14px",
     fontWeight: 700,
     cursor: "pointer",
   },
