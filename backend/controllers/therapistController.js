@@ -865,7 +865,6 @@ export const downloadStudentWordReport = async (req, res) => {
       data.twoLetter?.overview?.avgResponseTime ??
       0
     );
-    const multiLetterRate = Number(data.words?.overview?.successRate ?? 0);
     const baseline        = Number(combined.baseline ?? 78);
 
     // ── Dynamic phonological paragraph text from real data ─────────────
@@ -947,8 +946,7 @@ export const downloadStudentWordReport = async (req, res) => {
        .text('Overall Performance Summary', BOX_X + 12, infoTopY + 10, { width: BOX_W - 24 });
     doc.font('Helvetica').fillColor('#cce8e5').fontSize(9.5)
        .text(`Combined Accuracy: ${combinedAccuracy.toFixed(1)}%`,       BOX_X + 12, infoTopY + 28)
-       .text(`Avg Response Time: ${avgResponseTime.toFixed(2)}s`,         BOX_X + 12, infoTopY + 43)
-       .text(`Multi-Letter Rate: ${multiLetterRate.toFixed(1)}%`,         BOX_X + 12, infoTopY + 58);
+       .text(`Avg Response Time: ${avgResponseTime.toFixed(2)}s`,         BOX_X + 12, infoTopY + 43);
     doc.restore();
 
     // Advance cursor past both columns
@@ -958,7 +956,7 @@ export const downloadStudentWordReport = async (req, res) => {
     // SECTION 3 — Metric cards (3 equal columns, generous padding)
     // ══════════════════════════════════════════════════════════════════════
     const GAP    = 10;
-    const CARD_W = Math.floor((PW - GAP * 2) / 3);
+    const CARD_W = Math.floor((PW - GAP) / 2);
     const CARD_H = 80;
     const CARD_Y = doc.y;
 
@@ -981,22 +979,12 @@ export const downloadStudentWordReport = async (req, res) => {
     doc.font('Helvetica').fillColor('#6b7280').fontSize(8.5)
        .text('Avg. Response Time (s)', c2x + 14, CARD_Y + 12, { width: CARD_W - 28 });
     doc.font('Helvetica-Bold').fillColor('#111827').fontSize(26)
-       .text(`${avgResponseTime.toFixed(2)}`, c2x + 14, CARD_Y + 28);
+       .text(`${(avgResponseTime / 1000).toFixed(2)}`, c2x + 14, CARD_Y + 28);
     doc.font('Helvetica').fillColor('#9ca3af').fontSize(8.5)
        .text('Normative: 1.25s', c2x + 14, CARD_Y + 62);
     doc.restore();
 
-    // Card 3 — outlined
-    const c3x = ML + (CARD_W + GAP) * 2;
-    doc.save();
-    doc.roundedRect(c3x, CARD_Y, CARD_W, CARD_H, 5).strokeColor('#d1d5db').lineWidth(1).stroke();
-    doc.font('Helvetica').fillColor('#6b7280').fontSize(8.5)
-       .text('Multi-Letter Rate (%)', c3x + 14, CARD_Y + 12, { width: CARD_W - 28 });
-    doc.font('Helvetica-Bold').fillColor('#111827').fontSize(26)
-       .text(`${multiLetterRate.toFixed(1)}`, c3x + 14, CARD_Y + 28);
-    doc.font('Helvetica').fillColor('#9ca3af').fontSize(8.5)
-       .text('Success in clusters', c3x + 14, CARD_Y + 62);
-    doc.restore();
+
 
     doc.y = CARD_Y + CARD_H + 22;
 
@@ -1102,7 +1090,7 @@ export const downloadStudentWordReport = async (req, res) => {
         const accuracy = Number(word.successRate) || 0;
         const accColor = accuracy < 70 ? '#dc2626' : accuracy < 85 ? '#b45309' : '#334155';
         const rtVal    = word.avgResponseTime != null
-          ? `${Number(word.avgResponseTime).toFixed(1)}s`
+          ? `${(Number(word.avgResponseTime) / 1000).toFixed(2)}s`
           : 'N/A';
         const cellY    = ry + (ROW_H - 10) / 2;
 
@@ -1137,7 +1125,6 @@ export const downloadStudentWordReport = async (req, res) => {
       doc.y = TBL_Y + HDR_H + wordList.slice(0, 8).length * ROW_H + 18;
     };
 
-    drawWordTable('Two-Letter Words (Baseline)', twoLetterWords);
     drawWordTable('Multi-Letter & Complex Words', multiLetterWords);
 
     doc.end();
