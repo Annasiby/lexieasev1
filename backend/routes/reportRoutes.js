@@ -58,38 +58,24 @@ import {
   getLetterReport,
   downloadLetterReportPDF,
   downloadWordReportPDF,
-  downloadSentenceReportPDF
+  downloadSentenceReportPDF,
 } from "../controllers/reportController.js";
 
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+// ── Summary ───────────────────────────────────────────────────────────────────
 router.get("/student", protect, authorizeRoles("student"), getDashboardSummary);
-router.get("/student/words", protect, authorizeRoles("student"), getWordReport);
+
+// ── PDF downloads — MUST be registered BEFORE the plain data routes ───────────
+router.get("/student/letters/pdf",   protect, authorizeRoles("student"), downloadLetterReportPDF);
+router.get("/student/words/pdf",     protect, authorizeRoles("student"), downloadWordReportPDF);
+router.get("/student/sentences/pdf", protect, authorizeRoles("student"), downloadSentenceReportPDF);
+
+// ── Plain data routes ─────────────────────────────────────────────────────────
+router.get("/student/letters",   protect, authorizeRoles("student"), getLetterReport);
+router.get("/student/words",     protect, authorizeRoles("student"), getWordReport);
 router.get("/student/sentences", protect, authorizeRoles("student"), getSentenceReport);
-router.get("/student/letters", protect, authorizeRoles("student"), getLetterReport);
-
-/* ✅ ADD THESE */
-router.get(
-  "/student/letters/pdf",
-  protect,
-  authorizeRoles("student"),
-  downloadLetterReportPDF
-);
-
-router.get(
-  "/student/words/pdf",
-  protect,
-  authorizeRoles("student"),
-  downloadWordReportPDF
-);
-
-router.get(
-  "/student/sentences/pdf",
-  protect,
-  authorizeRoles("student"),
-  downloadSentenceReportPDF
-);
 
 export default router;
