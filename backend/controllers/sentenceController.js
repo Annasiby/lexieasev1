@@ -3,6 +3,7 @@ import LetterState from "../models/LetterState.js";
 import { selectNextState } from "../src/bandit/selectNext.js";
 import { updateBanditState } from "../src/bandit/updateState.js";
 import { getTrainingCorpusForStudent } from "../services/trainingContentService.js";
+import { initializeAI } from "./Geminiletter.js";
 
 // Chooses the next sentence based on the student's weakest letters (2–3)
 export const getNextSentence = async (req, res) => {
@@ -138,7 +139,37 @@ export const logSentenceAttempt = async (req, res) => {
   console.log("HIT /sentences/attempt", req.body);
   try {
     const studentId = req.user._id;
-    const { sentenceId, expected, spoken, responseTimeMs, visualScore, visualIsHard } = req.body;
+    const { sentenceId, expected, responseTimeMs, visualScore, visualIsHard } = req.body;
+    let { spoken } = req.body;
+
+    if ((!spoken || !String(spoken).trim()) && req.file) {
+      const audioBuffer = req.file.buffer;
+      const base64Audio = audioBuffer.toString("base64");
+
+      const geminiAI = initializeAI();
+      const response = await geminiAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: req.file.mimetype || "audio/webm",
+                  data: base64Audio,
+                },
+              },
+              {
+                text:
+                  "Listen to this audio and transcribe ONLY the spoken sentence. Return only the text.",
+              },
+            ],
+          },
+        ],
+      });
+
+      spoken = response.text?.toLowerCase().trim() || "";
+    }
 
     if (!sentenceId || !expected || !spoken || responseTimeMs === undefined) {
       return res.status(400).json({
@@ -188,6 +219,8 @@ export const logSentenceAttempt = async (req, res) => {
       matchedWords.length / expectedWords.length;
 
     const sentenceCorrect = sentenceAccuracy >= 0.7;
+    const partialCorrect = !sentenceCorrect && sentenceAccuracy >= 0.4;
+    const canAdvance = sentenceCorrect || partialCorrect;
 
     // Extract letter-level errors   
     const problemLetters = new Set();
@@ -266,10 +299,15 @@ export const logSentenceAttempt = async (req, res) => {
     return res.json({
       success: true,
       sentenceCorrect,
+      partialCorrect,
+      canAdvance,
       sentenceAccuracy,
+      transcript: spoken,
       problemLetters: Array.from(problemLetters),
       message: sentenceCorrect
         ? "Good job! Keep going."
+        : partialCorrect
+        ? "Almost there. Try the same sentence once more."
         : "Nice try! Focus on the highlighted sounds.",
     });
 

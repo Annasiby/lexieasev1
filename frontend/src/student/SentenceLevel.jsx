@@ -44,9 +44,10 @@ function SentenceLevel() {
   const [selectedPronunciation, setSelectedPronunciation] = useState("");
   const [paintedWords, setPaintedWords] = useState({});
 
-  const recognitionRef = useRef(null);
   const spokenRef = useRef("");
-  const shouldSubmitRef = useRef(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const streamRef = useRef(null);
 
   const sentenceIdRef = useRef(null);
   const sentenceRef = useRef(null);
@@ -193,15 +194,10 @@ function SentenceLevel() {
   /* =========================
      Submit Attempt → Bandit
   ========================== */
-  const submitAttempt = async () => {
+  const submitAttempt = async (audioBlob) => {
     console.log("📤 submitAttempt called");
 
-    if (
-      !sentenceIdRef.current ||
-      !sentenceRef.current ||
-      !spokenRef.current ||
-      !shownAtRef.current
-    ) {
+    if (!sentenceIdRef.current || !sentenceRef.current || !shownAtRef.current) {
       console.log("❌ Missing data, aborting submit");
       return;
     }
@@ -227,23 +223,26 @@ function SentenceLevel() {
     console.log("IsHard:", visionResult.isHard);
 
     try {
-      const payload = {
-        sentenceId: sentenceIdRef.current,
-        expected: sentenceRef.current,
-        spoken: spokenRef.current,
-        responseTimeMs: Date.now() - shownAtRef.current,
-        visualScore: visionResult.score,
-        visualIsHard: visionResult.isHard,
-      };
-
-      console.log("📤 Sending to API:", payload);
+      const form = new FormData();
+      form.append("sentenceId", sentenceIdRef.current);
+      form.append("expected", sentenceRef.current);
+      form.append("responseTimeMs", Date.now() - shownAtRef.current);
+      form.append("visualScore", visionResult.score);
+      form.append("visualIsHard", visionResult.isHard);
+      if (spokenRef.current) {
+        form.append("spoken", spokenRef.current);
+      }
+      if (audioBlob) {
+        form.append("audio", audioBlob, "sentence.webm");
+      }
 
       const res = await apiFetch("/api/sentences/attempt", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: form,
       });
 
       console.log("✅ API Response:", res);
+      setSpoken(res.transcript || spokenRef.current || "");
 
       // Add varied feedback message
       const feedbackMessage = res.sentenceCorrect
@@ -252,16 +251,18 @@ function SentenceLevel() {
 
       setFeedback({
         ...res,
+        transcript: res.transcript || spokenRef.current || "",
         displayMessage: feedbackMessage,
       });
 
       speakFeedback(res);
 
-      // 🔥 Load next sentence after delay
-      setTimeout(() => {
-        console.log("⏭️ Loading next sentence...");
-        loadSentence();
-      }, 1600);
+      if (res?.canAdvance) {
+        setTimeout(() => {
+          console.log("⏭️ Loading next sentence...");
+          loadSentence();
+        }, 1600);
+      }
     } catch (error) {
       console.error("❌ Failed to submit attempt:", error);
       setFeedback({
@@ -272,75 +273,6 @@ function SentenceLevel() {
   };
 
   /* =========================
-     Speech Recognition Setup
-  ========================== */
-  useEffect(() => {
-    console.log("🎙️ Setting up speech recognition (ONCE)");
-
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Speech Recognition not supported in this browser");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = () => {
-      console.log("🎙️ Recognition started");
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      const confidence = event.results[0][0].confidence;
-
-      console.log(
-        `🎤 Heard: "${transcript}" (confidence: ${confidence.toFixed(2)})`,
-      );
-
-      spokenRef.current = transcript;
-      setSpoken(transcript);
-    };
-
-    recognition.onerror = (event) => {
-      console.error("❌ Recognition error:", event.error);
-      setIsRecording(false);
-      shouldSubmitRef.current = false;
-    };
-
-    recognition.onend = () => {
-      console.log(
-        `🎙️ Recognition ended. hasTranscript: ${!!spokenRef.current}`,
-      );
-      setIsRecording(false);
-
-      // ✅ AUTO-SUBMIT if we have a transcript
-      if (spokenRef.current) {
-        console.log("✅ Calling submitAttempt");
-        submitAttempt();
-      } else {
-        console.log("⚠️ Not submitting - no transcript");
-      }
-
-      shouldSubmitRef.current = false;
-    };
-
-    recognitionRef.current = recognition;
-    console.log("✅ Speech recognition ready");
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-        console.log("🧹 Recognition cleaned up on unmount");
-      }
-    };
-  }, []); // Empty array - only setup once
-
-  /* =========================
      Cleanup speech synthesis
   ========================== */
   useEffect(() => {
@@ -348,30 +280,61 @@ function SentenceLevel() {
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      try {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+      } catch (_) {
+        // ignore cleanup failure
+      }
     };
   }, []);
 
   /* =========================
      Controls
   ========================== */
-  const startRecording = () => {
+  const startRecording = async () => {
     console.log("▶️ START button clicked");
-
-    if (!recognitionRef.current) {
-      console.log("❌ No recognition object");
-      return;
-    }
 
     setSpoken("");
     spokenRef.current = "";
     setFeedback(null);
     setShownAt(Date.now());
-    shouldSubmitRef.current = false;
-
     try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 16000,
+        },
+      });
+
+      streamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "audio/ogg";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        try {
+          streamRef.current?.getTracks().forEach((track) => track.stop());
+        } catch (_) {
+          // ignore stop failure
+        }
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        await submitAttempt(audioBlob);
+      };
+
+      mediaRecorderRef.current = recorder;
       setIsRecording(true);
-      recognitionRef.current.start();
-      console.log("🎙️ Starting recognition...");
+      recorder.start();
+      console.log("🎙️ Recording started");
     } catch (error) {
       console.error("❌ Start error:", error);
       setIsRecording(false);
@@ -380,21 +343,25 @@ function SentenceLevel() {
 
   const stopRecording = () => {
     console.log("⏹️ STOP button clicked");
-
-    if (!recognitionRef.current) {
-      console.log("❌ No recognition object");
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== "recording") {
+      console.log("❌ No active recorder");
       return;
     }
 
-    shouldSubmitRef.current = true;
-    console.log("✅ Set shouldSubmit = true");
-
     try {
-      recognitionRef.current.stop();
-      console.log("🎙️ Stopping recognition...");
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      console.log("🎙️ Stopping recording...");
     } catch (error) {
       console.error("❌ Stop error:", error);
     }
+  };
+
+  const moveToNextSentence = async () => {
+    setFeedback(null);
+    setSpoken("");
+    spokenRef.current = "";
+    await loadSentence();
   };
 
   /* =========================
@@ -678,6 +645,14 @@ function SentenceLevel() {
           >
             Stop
           </button>
+
+          <button
+            onClick={moveToNextSentence}
+            disabled={isRecording}
+            style={styles.nextBtn}
+          >
+            Next Sentence
+          </button>
         </div>
 
         {spoken && (
@@ -811,6 +786,17 @@ const styles = {
     cursor: "pointer",
     fontSize: 16,
     fontWeight: 600,
+    transition: "all 0.2s ease",
+  },
+  nextBtn: {
+    padding: "16px 28px",
+    borderRadius: 14,
+    border: "none",
+    background: "#0f172a",
+    color: "white",
+    cursor: "pointer",
+    fontSize: 16,
+    fontWeight: 700,
     transition: "all 0.2s ease",
   },
   spokenCard: {

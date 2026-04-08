@@ -192,6 +192,16 @@ export const geminiWordAttempt = async (req, res) => {
     const spokenNorm = normalize(spoken);
 
     const wordCorrect = expectedNorm === spokenNorm;
+    const comparedLength = Math.max(expectedNorm.length, 1);
+    const positionalMatches = expectedNorm
+      .split("")
+      .reduce(
+        (count, char, index) => count + (char === (spokenNorm[index] || "") ? 1 : 0),
+        0
+      );
+    const partialCorrect =
+      !wordCorrect && positionalMatches / comparedLength >= 0.5;
+    const canAdvance = wordCorrect || partialCorrect;
 
     console.log("HIT /words/attempt-audio", {
       wordId,
@@ -262,10 +272,14 @@ export const geminiWordAttempt = async (req, res) => {
     return res.json({
       success: true,
       wordCorrect,
+      partialCorrect,
+      canAdvance,
       problemLetters: Array.from(problemLetters),
       transcript: spoken,
       message: wordCorrect
         ? "Good job! Keep going."
+        : partialCorrect
+        ? "Almost there. Try the same word once more."
         : "Nice try! Focus on the highlighted sounds.",
     });
   } catch (err) {
