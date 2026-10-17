@@ -55,7 +55,7 @@ import sentenceRoutes from "./routes/sentenceRoutes.js";
 import wordRoutes from "./routes/wordRoutes.js";
 import twoLetterRoutes from "./routes/twoLetterRoutes.js";
 import syllableRoutes from "./routes/syllableRoutes.js";
-import trainingDocumentRoutes from "./routes/trainingDocumentRoutes.js";
+
 import reportRoutes from "./routes/reportRoutes.js";
 import therapistRoutes from "./routes/therapistRoutes.js";
 import guardianRoutes from "./routes/guardianRoutes.js";
@@ -98,7 +98,7 @@ app.use("/api/sentences", sentenceRoutes);
 app.use("/api/words", wordRoutes);
 app.use("/api/twoletterwords", twoLetterRoutes);
 app.use("/api/syllables", syllableRoutes);
-app.use("/api/training-documents", trainingDocumentRoutes);
+
 app.use("/api/reports", reportRoutes);
 app.use("/api/therapist", therapistRoutes);
 app.use("/api/guardian", guardianRoutes);
